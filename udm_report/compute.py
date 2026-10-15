@@ -27,6 +27,8 @@ class Session:
     service: str
     client: str
     project: str
+    project_id: str = ""
+    item_id: str = ""
 
     @property
     def day(self):
@@ -76,6 +78,7 @@ def load(source):
                     started=datetime.fromtimestamp(s["started_at"], MYT), title=s.get("name") or "",
                     task=item.get("name") or "", service=svc["name"], client=client,
                     project=projects.get(item.get("project_id"), ""),
+                    project_id=item.get("project_id") or "", item_id=item.get("item_id") or "",
                 ))
         for it in source.work_items(svc["id"]).get("items", []):
             tasks.append(Task(

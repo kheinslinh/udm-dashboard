@@ -1,0 +1,1246 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>UDM Time & Delivery</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Source+Serif+4:wght@400;600&display=swap" rel="stylesheet">
+<style>
+:root{
+  --font-anthropic-sans:Inter,system-ui,-apple-system,"Segoe UI",sans-serif;
+  --font-anthropic-serif:"Source Serif 4",Georgia,serif;
+  --color-bg:#faf9f5;--color-panel:#ffffff;--color-fg:#1f1e1b;--color-fg-muted:#6b6a65;--color-border-line:#e3e1da;
+  --color-ok:#2f7d4f;--color-warn:#b7791f;--color-bad:#c2410c;
+  --chart-1:#2563eb;--chart-2:#d97706;--chart-3:#059669;--chart-4:#db2777;--chart-5:#7c3aed;--chart-6:#0891b2;--chart-7:#65a30d;--chart-8:#dc2626;
+  --cds-border:var(--color-border-line);--cds-chart-axis:#8a8880;--cds-chart-grid:#ecebe6;--cds-chart-muted:#c9c7bf;--cds-chart-reference:#6b6a65;--cds-chart-status-critical:#c2410c;
+  --cds-surface-popover:#ffffff;--cds-shadow-popover:0 4px 16px rgba(0,0,0,.12);--cds-text-secondary:var(--color-fg-muted);
+  --cds-font-size-caption:12px;--cds-font-size-body:14px;--cds-font-size-heading:16px;--cds-font-size-title:28px;--cds-font-weight-medium:500;
+  --cds-gap-xs:4px;--cds-gap-sm:8px;--cds-gap-md:12px;--cds-gap-lg:24px;--cds-pad-xs:4px;--cds-pad-sm:8px;--cds-pad-lg:16px;--cds-radius:8px;--cds-dur-slow:300ms;
+}
+@media (prefers-color-scheme: dark){:root:not([data-theme="light"]){
+  --color-bg:#1a1915;--color-panel:#24231f;--color-fg:#ecebe6;--color-fg-muted:#a3a19a;--color-border-line:#3a3933;
+  --chart-1:#60a5fa;--chart-2:#fbbf24;--chart-3:#34d399;--chart-4:#f472b6;--chart-5:#a78bfa;--chart-6:#22d3ee;--chart-7:#a3e635;--chart-8:#f87171;
+  --cds-chart-axis:#8f8d86;--cds-chart-grid:#33322c;--cds-chart-muted:#55534c;--cds-chart-reference:#a3a19a;--cds-chart-status-critical:#fb923c;
+  --cds-surface-popover:#2c2b26;--cds-shadow-popover:0 4px 16px rgba(0,0,0,.5);
+}}
+:root[data-theme="dark"]{
+  --color-bg:#1a1915;--color-panel:#24231f;--color-fg:#ecebe6;--color-fg-muted:#a3a19a;--color-border-line:#3a3933;
+  --chart-1:#60a5fa;--chart-2:#fbbf24;--chart-3:#34d399;--chart-4:#f472b6;--chart-5:#a78bfa;--chart-6:#22d3ee;--chart-7:#a3e635;--chart-8:#f87171;
+  --cds-chart-axis:#8f8d86;--cds-chart-grid:#33322c;--cds-chart-muted:#55534c;--cds-chart-reference:#a3a19a;--cds-chart-status-critical:#fb923c;
+  --cds-surface-popover:#2c2b26;--cds-shadow-popover:0 4px 16px rgba(0,0,0,.5);
+}
+html,body{margin:0;background:var(--color-bg);color:var(--color-fg)}
+#dash-root{max-width:1280px;margin:0 auto;padding:24px 16px 48px;box-sizing:border-box}
+</style>
+<script src="vendor/d3.v7.9.0.min.js"></script>
+</head>
+<body>
+<div id="dash-root"></div>
+<template id="dash-page">
+<style>
+.ud{font-family:var(--font-anthropic-sans);color:var(--color-fg);display:flex;flex-direction:column;gap:var(--cds-gap-lg)}
+.ud-head h1{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);margin:0}
+.ud-take{margin:var(--cds-gap-xs) 0 0;font-size:var(--cds-font-size-body)}
+.ud-note{margin:var(--cds-gap-xs) 0 0;color:var(--color-fg-muted);font-size:var(--cds-font-size-caption)}
+.ud-filters{display:flex;flex-wrap:wrap;gap:var(--cds-gap-sm);align-items:flex-end}
+.ud-filters label{display:flex;flex-direction:column;gap:2px;font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.ud-filters select{font:inherit;font-size:var(--cds-font-size-body);color:var(--color-fg);background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:4px 6px;max-width:15rem}
+.ud-filters label.ud-check{flex-direction:row;align-items:center;gap:6px;padding-bottom:7px;color:var(--color-fg)}
+.ud-btn{font:inherit;font-size:var(--cds-font-size-caption);background:none;border:1px solid var(--color-border-line);border-radius:var(--cds-radius);color:var(--color-fg);padding:6px 12px;cursor:pointer}
+.ud-tiles{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,13rem),1fr));gap:var(--cds-gap-md)}
+.ud-card{background:var(--color-panel);border:1px solid var(--color-border-line);border-radius:var(--cds-radius);padding:var(--cds-pad-lg);min-width:0;position:relative}
+.ud-tile .lbl{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.ud-tile .big{font-family:var(--font-anthropic-serif);font-weight:400;font-size:var(--cds-font-size-title);font-variant-numeric:tabular-nums;margin:var(--cds-gap-xs) 0}
+.ud-tile .sub{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted)}
+.ud-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,26rem),1fr));gap:var(--cds-gap-md)}
+.ud h2{font-size:var(--cds-font-size-heading);font-weight:var(--cds-font-weight-medium);margin:0}
+.ud-cap{font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin:2px 0 var(--cds-gap-sm)}
+.ud-cardhead{display:flex;justify-content:space-between;align-items:flex-start;gap:var(--cds-gap-sm);flex-wrap:wrap}
+.ud-chart{min-height:220px}
+.ud-chart svg{display:block}
+.ud svg text{font-family:var(--font-anthropic-sans);font-size:var(--cds-font-size-caption);fill:var(--color-fg-muted)}
+.ud svg text.ud-v{fill:var(--color-fg);font-variant-numeric:tabular-nums}
+.ud-tip{position:absolute;pointer-events:none;background:var(--cds-surface-popover);border:1px solid var(--cds-border);border-radius:var(--cds-radius);box-shadow:var(--cds-shadow-popover);padding:var(--cds-pad-xs) var(--cds-pad-sm);font-size:var(--cds-font-size-caption);display:none;z-index:2;max-width:18rem}
+.ud-tip .k{color:var(--cds-text-secondary)}
+.ud-empty{display:flex;align-items:center;justify-content:center;min-height:120px;color:var(--color-fg-muted);font-size:var(--cds-font-size-caption);gap:6px}
+.ud-empty i{width:.375rem;height:.375rem;border-radius:50%;background:var(--color-bad);display:inline-block}
+.ud-scroll{max-height:28rem;overflow:auto}
+.ud table{border-collapse:collapse;width:100%;font-size:var(--cds-font-size-caption);font-variant-numeric:tabular-nums}
+.ud th{position:sticky;top:0;background:var(--color-panel);text-align:left;font-weight:var(--cds-font-weight-medium);color:var(--color-fg-muted);padding:6px 8px;border-bottom:1px solid var(--color-border-line);white-space:nowrap}
+.ud th button{all:unset;cursor:pointer}
+.ud td{padding:5px 8px;border-bottom:1px solid var(--color-border-line);vertical-align:top}
+.ud td.n,.ud th.n{text-align:right}
+.ud .bad{color:var(--color-bad)}
+.ud .warn{color:var(--color-warn)}
+.ud-search{font:inherit;font-size:var(--cds-font-size-caption);padding:4px 8px;border:1px solid var(--color-border-line);border-radius:var(--cds-radius);background:var(--color-bg);color:var(--color-fg);width:min(100%,18rem)}
+.ud-bar{display:inline-block;height:6px;border-radius:3px;background:var(--cds-chart-muted);width:48px;vertical-align:middle;margin-right:6px;overflow:hidden}
+.ud-bar i{display:block;height:100%;border-radius:3px}
+.ud-list{margin:0;padding-left:1.1rem;font-size:var(--cds-font-size-caption)}
+.ud-list li{margin:2px 0}
+.ud-qhead{font-size:var(--cds-font-size-body);font-weight:var(--cds-font-weight-medium);margin:var(--cds-gap-md) 0 var(--cds-gap-xs)}
+.ud-qhead:first-of-type{margin-top:0}
+.ud-legend{display:flex;flex-wrap:wrap;gap:4px 12px;font-size:var(--cds-font-size-caption);color:var(--color-fg-muted);margin-top:var(--cds-gap-sm)}
+.ud-legend span{display:inline-flex;align-items:center;gap:5px}
+.ud-legend i{width:10px;height:10px;border-radius:2px;display:inline-block}
+.ud-grid3{display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,22rem),1fr));gap:var(--cds-gap-md)}
+.ud-pie{min-height:260px}
+.ud-tabs{display:flex;gap:var(--cds-gap-xs);border-bottom:1px solid var(--color-border-line);flex-wrap:wrap}
+.ud-tabs button{font:inherit;font-size:var(--cds-font-size-body);background:none;border:0;border-bottom:2px solid transparent;color:var(--color-fg-muted);padding:var(--cds-pad-xs) var(--cds-pad-sm);cursor:pointer;margin-bottom:-1px}
+.ud-tabs button[aria-selected=true]{color:var(--color-fg);border-bottom-color:var(--color-fg);font-weight:var(--cds-font-weight-medium)}
+.ud-page{display:flex;flex-direction:column;gap:var(--cds-gap-lg)}
+.ud-page[hidden]{display:none}
+.ud-note b{font-weight:var(--cds-font-weight-medium)}
+@media (max-width:640px){.ud .wide{display:none}}
+[data-dash-source-state=refreshing]{opacity:.5;transition:opacity var(--cds-dur-slow)}
+[data-dash-source-state=empty]{color:transparent}
+</style>
+
+<div class="ud">
+  <header class="ud-head" id="top">
+    <h1>UDM time &amp; delivery</h1>
+    <p class="ud-take dash-skeleton" data-source="sessions people">—</p>
+    <p class="ud-note" id="ud-snapshot-note">Hours are Rework timer sessions logged on tasks, 1–9 Oct 2026 (snapshot taken 9 Oct, 16:30 MYT). Benchmark: 8h per working day per person (9 Oct counted as half a day). Timers left running over 12h are left out unless ticked below.</p>
+  </header>
+
+  <section class="ud-filters" id="filters" aria-label="Filters">
+    <label>Month<select class="ud-f" data-p="month" aria-label="Month"></select></label>
+    <label>Week<select class="ud-f" data-p="week" aria-label="Week"></select></label>
+    <label>Service group<select class="ud-f" data-p="client" aria-label="Service group"></select></label>
+    <label>Service<select class="ud-f" data-p="service" aria-label="Service"></select></label>
+    <label>Team<select class="ud-f" data-p="team" aria-label="Team"></select></label>
+    <label>Person<select class="ud-f" data-p="person" aria-label="Person"></select></label>
+    <label class="ud-check"><input type="checkbox" class="ud-runaway"> Include runaway timers</label>
+    <button class="ud-btn ud-reset" type="button">Reset</button>
+  </section>
+
+  <nav class="ud-tabs" role="tablist" aria-label="Pages">
+    <button type="button" role="tab" data-tab="overview" id="tab-overview">Time &amp; delivery</button>
+    <button type="button" role="tab" data-tab="revisions" id="tab-revisions">Revisions</button>
+    <button type="button" role="tab" data-tab="clockin" id="tab-clockin">Clock-in (internal)</button>
+  </nav>
+
+  <div class="ud-page" id="overview">
+  <section class="ud-tiles" id="headline">
+    <div class="ud-card ud-tile" id="tile-hours" data-source="sessions">
+      <div class="lbl">Hours logged</div><div class="big dash-skeleton">—</div><div class="sub">—</div>
+    </div>
+    <div class="ud-card ud-tile" id="tile-people" data-source="sessions people">
+      <div class="lbl">People who logged time</div><div class="big dash-skeleton">—</div><div class="sub">—</div>
+    </div>
+    <div class="ud-card ud-tile" id="tile-avg" data-source="sessions people">
+      <div class="lbl">Hours per active person</div><div class="big dash-skeleton">—</div><div class="sub">—</div>
+    </div>
+    <div class="ud-card ud-tile" id="tile-tasks" data-source="projects">
+      <div class="lbl">Tasks done (projects in scope)</div><div class="big dash-skeleton">—</div><div class="sub">—</div>
+    </div>
+  </section>
+
+  <section class="ud-grid3">
+    <div class="ud-card" id="card-condition">
+      <h2>Projects by condition</h2>
+      <p class="ud-cap">Completed = all tasks done; At risk = has overdue tasks; On track = the rest.</p>
+      <div class="ud-chart ud-pie" id="chart-condition" data-source="projects"></div>
+      <div class="ud-tip"></div>
+    </div>
+    <div class="ud-card" id="card-groupteam">
+      <h2>Hours by service group and team</h2>
+      <p class="ud-cap">Top 6 service groups in the selection, one bar per team.</p>
+      <div class="ud-chart" id="chart-groupteam" data-source="sessions"></div>
+      <div class="ud-tip"></div>
+    </div>
+    <div class="ud-card" id="card-overdue">
+      <h2>Overdue tasks by service group</h2>
+      <p class="ud-cap">Overdue tasks today, top 10 service groups. Click a bar to filter.</p>
+      <div class="ud-chart" id="chart-overdue" data-source="projects"></div>
+      <div class="ud-tip"></div>
+    </div>
+    <div class="ud-card" id="card-client">
+      <h2>Hours by service group</h2>
+      <p class="ud-cap">Service group = client or internal area, split by team. Click a bar to filter.</p>
+      <div class="ud-chart" id="chart-client" data-source="sessions"></div>
+      <div class="ud-tip"></div>
+    </div>
+    <div class="ud-card" id="card-team">
+      <h2>Hours by team</h2>
+      <p class="ud-cap">Click a slice to filter to that team.</p>
+      <div class="ud-chart ud-pie" id="chart-team" data-source="sessions"></div>
+      <div class="ud-tip"></div>
+    </div>
+    <div class="ud-card" id="card-time">
+      <div class="ud-cardhead">
+        <div><h2>Hours over time</h2><p class="ud-cap">Hours logged per <span class="ud-grain-word">day</span>, stacked by team.</p></div>
+        <label class="ud-cap">Show by <select class="ud-grain ud-search" style="width:auto" aria-label="Group by"><option value="day">Day</option><option value="week">Week</option></select></label>
+      </div>
+      <div class="ud-chart" id="chart-time" data-source="sessions"></div>
+      <div class="ud-tip"></div>
+    </div>
+    <div class="ud-card" id="card-person">
+      <h2>Hours per person vs benchmark</h2>
+      <p class="ud-cap">Colored by team. Dashed line: 8h × working days in the period. Click a bar to filter to that person.</p>
+      <div class="ud-chart" id="chart-person" data-source="sessions people"></div>
+      <div class="ud-tip"></div>
+    </div>
+    <div class="ud-card" id="card-service">
+      <h2>Hours by service</h2>
+      <p class="ud-cap">Top 15 services (scope of work within a service group), split by team. Click to filter.</p>
+      <div class="ud-chart" id="chart-service" data-source="sessions"></div>
+      <div class="ud-tip"></div>
+    </div>
+    <div class="ud-card" id="card-project">
+      <h2>Top projects by hours</h2>
+      <p class="ud-cap">The 15 projects with the most hours in the selection, split by team.</p>
+      <div class="ud-chart" id="chart-project" data-source="sessions"></div>
+      <div class="ud-tip"></div>
+    </div>
+  </section>
+
+  <section class="ud-card" id="card-deliverables">
+    <div class="ud-cardhead">
+      <div><h2>Deliverables by project</h2>
+      <p class="ud-cap">Task status today, all time. Follows the service group and service filters only (task counts have no date or person).</p></div>
+      <input class="ud-search ud-q-proj" type="search" placeholder="Search projects" aria-label="Search projects">
+    </div>
+    <div class="ud-scroll">
+      <table class="ud-t-proj" data-source="projects" data-row-key="project_id">
+        <thead><tr>
+          <th data-field="service_group"><button data-k="service_group">Service group</button></th>
+          <th data-field="service" class="wide"><button data-k="service">Service</button></th>
+          <th data-field="project"><button data-k="project">Project</button></th>
+          <th data-field="done" class="n"><button data-k="done">Done</button></th>
+          <th data-field="total" class="n"><button data-k="total">Total</button></th>
+          <th data-field="overdue" class="n"><button data-k="overdue">Overdue</button></th>
+          <th data-source="project_pct" data-field="pct_done" class="n"><button data-k="pct_done">% done</button></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+
+  <section class="ud-grid">
+    <div class="ud-card" id="card-quality">
+      <h2>Data checks</h2>
+      <p class="ud-cap">Things that make hours look higher or lower than the work done.</p>
+      <div class="ud-qhead">Runaway timers (one session over 12h)</div>
+      <ul class="ud-list ud-runlist" data-source="sessions"></ul>
+      <div class="ud-qhead">No time logged in the selection</div>
+      <p class="ud-cap ud-zero" data-source="sessions people">—</p>
+      <p class="ud-cap">Time logged outside tasks (or in Clockify) isn't in this data.</p>
+    </div>
+  </section>
+
+  <section class="ud-card" id="card-log">
+    <div class="ud-cardhead">
+      <div><h2>Time log</h2><p class="ud-cap">Every timer session in the selection, newest first.</p></div>
+      <input class="ud-search ud-q-log" type="search" placeholder="Search sessions" aria-label="Search sessions">
+    </div>
+    <div class="ud-scroll">
+      <table class="ud-t-log" data-source="sessions" data-row-key="session">
+        <thead><tr>
+          <th data-field="date"><button data-k="date">Date</button></th>
+          <th data-field="person"><button data-k="person">Person</button></th>
+          <th data-field="team" class="wide"><button data-k="team">Team</button></th>
+          <th data-field="service_group"><button data-k="service_group">Service group</button></th>
+          <th data-field="service" class="wide"><button data-k="service">Service</button></th>
+          <th data-field="project"><button data-k="project">Project</button></th>
+          <th data-field="hours" class="n"><button data-k="hours">Hours</button></th>
+        </tr></thead>
+        <tbody></tbody>
+      </table>
+    </div>
+  </section>
+  </div>
+
+  <div class="ud-page" id="revisions" hidden>
+    <p class="ud-note">A revision is a time log whose log name (or task name) says <b>revision</b>, <b>amendment</b>, <b>re-edit</b> or <b>changes</b>. Revision work logged under another name isn't counted. Filters above apply.</p>
+    <section class="ud-tiles">
+      <div class="ud-card ud-tile" id="tile-rev-count" data-source="sessions"><div class="lbl">Revision logs</div><div class="big dash-skeleton">—</div><div class="sub">—</div></div>
+      <div class="ud-card ud-tile" id="tile-rev-tasks" data-source="sessions"><div class="lbl">Tasks revised</div><div class="big dash-skeleton">—</div><div class="sub">—</div></div>
+      <div class="ud-card ud-tile" id="tile-rev-hours" data-source="sessions"><div class="lbl">Hours on revisions</div><div class="big dash-skeleton">—</div><div class="sub">—</div></div>
+      <div class="ud-card ud-tile" id="tile-rev-people" data-source="sessions"><div class="lbl">People doing revisions</div><div class="big dash-skeleton">—</div><div class="sub">—</div></div>
+    </section>
+    <section class="ud-grid">
+      <div class="ud-card" id="card-rev-group">
+        <h2>Revisions by service group</h2>
+        <p class="ud-cap">Number of revision logs, split by team. Click a bar to filter.</p>
+        <div class="ud-chart" id="chart-rev-group" data-source="sessions"></div>
+        <div class="ud-tip"></div>
+      </div>
+      <div class="ud-card" id="card-rev-person">
+        <h2>Revisions by person</h2>
+        <p class="ud-cap">Number of revision logs, colored by team. Click a bar to filter.</p>
+        <div class="ud-chart" id="chart-rev-person" data-source="sessions"></div>
+        <div class="ud-tip"></div>
+      </div>
+      <div class="ud-card" id="card-rev-time">
+        <h2>Revisions over time</h2>
+        <p class="ud-cap">Revision logs per <span class="ud-grain-word">day</span>, stacked by team.</p>
+        <div class="ud-chart" id="chart-rev-time" data-source="sessions"></div>
+        <div class="ud-tip"></div>
+      </div>
+      <div class="ud-card" id="card-rev-type">
+        <h2>Kind of revision log</h2>
+        <p class="ud-cap">Which word the log name used.</p>
+        <div class="ud-chart" id="chart-rev-type" data-source="sessions"></div>
+        <div class="ud-tip"></div>
+      </div>
+    </section>
+    <section class="ud-card" id="card-rev-tasks">
+      <h2>Most-revised tasks</h2>
+      <p class="ud-cap">Tasks with revision logs in the selection, most logs first.</p>
+      <div class="ud-scroll">
+        <table class="ud-t-revtask" data-source="sessions">
+          <thead><tr><th>Task</th><th>Service group</th><th class="wide">Project</th><th class="n">Revision logs</th><th class="n">Hours</th><th class="wide">People</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+    <section class="ud-card" id="card-rev-log">
+      <div class="ud-cardhead">
+        <div><h2>Revision log</h2><p class="ud-cap">Every revision log in the selection.</p></div>
+        <input class="ud-search ud-q-rev" type="search" placeholder="Search revisions" aria-label="Search revisions">
+      </div>
+      <div class="ud-scroll">
+        <table class="ud-t-rev" data-source="sessions" data-row-key="session">
+          <thead><tr>
+            <th data-field="date"><button data-k="date">Date</button></th>
+            <th data-field="person"><button data-k="person">Person</button></th>
+            <th data-field="service_group"><button data-k="service_group">Service group</button></th>
+            <th data-field="task" class="wide"><button data-k="task">Task</button></th>
+            <th data-field="log_name"><button data-k="log_name">Log name</button></th>
+            <th data-field="revision_type" class="wide"><button data-k="revision_type">Kind</button></th>
+            <th data-field="hours" class="n"><button data-k="hours">Hours</button></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+
+  <div class="ud-page" id="clockin" hidden>
+    <p class="ud-note">Clock-in time is time logged on tasks named "clock in" / "clockin" (e.g. "Servicing Clockin", in each service's Clock in stage), plus "Clockify" catch-all tasks, where people log time that has no task of its own. Filters above apply.</p>
+    <section class="ud-tiles">
+      <div class="ud-card ud-tile" id="tile-ck-hours" data-source="sessions"><div class="lbl">Clock-in hours</div><div class="big dash-skeleton">—</div><div class="sub">—</div></div>
+      <div class="ud-card ud-tile" id="tile-ck-logs" data-source="sessions"><div class="lbl">Clock-in logs</div><div class="big dash-skeleton">—</div><div class="sub">—</div></div>
+      <div class="ud-card ud-tile" id="tile-ck-people" data-source="sessions"><div class="lbl">People clocking in</div><div class="big dash-skeleton">—</div><div class="sub">—</div></div>
+      <div class="ud-card ud-tile" id="tile-ck-avg" data-source="sessions"><div class="lbl">Clock-in hours per person</div><div class="big dash-skeleton">—</div><div class="sub">—</div></div>
+    </section>
+    <section class="ud-grid">
+      <div class="ud-card" id="card-ck-person">
+        <h2>Clock-in hours by person</h2>
+        <p class="ud-cap">Colored by team. Click a bar to filter.</p>
+        <div class="ud-chart" id="chart-ck-person" data-source="sessions"></div>
+        <div class="ud-tip"></div>
+      </div>
+      <div class="ud-card" id="card-ck-group">
+        <h2>Clock-in hours by service group</h2>
+        <p class="ud-cap">Which service's clock-in task the time sits on, split by team.</p>
+        <div class="ud-chart" id="chart-ck-group" data-source="sessions"></div>
+        <div class="ud-tip"></div>
+      </div>
+      <div class="ud-card" id="card-ck-time">
+        <h2>Clock-in hours over time</h2>
+        <p class="ud-cap">Per <span class="ud-grain-word">day</span>, stacked by team.</p>
+        <div class="ud-chart" id="chart-ck-time" data-source="sessions"></div>
+        <div class="ud-tip"></div>
+      </div>
+      <div class="ud-card" id="card-ck-type">
+        <h2>Clock-in task vs Clockify catch-all</h2>
+        <p class="ud-cap">Hours by kind of task.</p>
+        <div class="ud-chart" id="chart-ck-type" data-source="sessions"></div>
+        <div class="ud-tip"></div>
+      </div>
+    </section>
+    <section class="ud-card" id="card-ck-log">
+      <div class="ud-cardhead">
+        <div><h2>Clock-in log</h2><p class="ud-cap">What people logged under clock-in tasks.</p></div>
+        <input class="ud-search ud-q-ck" type="search" placeholder="Search clock-in logs" aria-label="Search clock-in logs">
+      </div>
+      <div class="ud-scroll">
+        <table class="ud-t-ck" data-source="sessions" data-row-key="session">
+          <thead><tr>
+            <th data-field="date"><button data-k="date">Date</button></th>
+            <th data-field="person"><button data-k="person">Person</button></th>
+            <th data-field="service_group"><button data-k="service_group">Service group</button></th>
+            <th data-field="task" class="wide"><button data-k="task">Task</button></th>
+            <th data-field="log_name"><button data-k="log_name">Log name</button></th>
+            <th data-field="clockin_type" class="wide"><button data-k="clockin_type">Kind</button></th>
+            <th data-field="hours" class="n"><button data-k="hours">Hours</button></th>
+          </tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </section>
+  </div>
+</div>
+
+<script>
+(() => {
+  // Fixed references (not data): benchmark and the snapshot's window.
+  const BENCH_PER_DAY = 8;
+  const WIN_START = window.UDM_META.window_start || '2026-10-01';
+  const WIN_END = window.UDM_META.window_end || '2026-10-09';
+  const LAST_DAY_SHARE = window.UDM_META.last_day_share ?? 1;
+  const FILTERS = { month: 'month', week: 'week', client: 'service_group', service: 'service', team: 'team', person: 'person' };
+
+  const $ = (s, r = document) => r.querySelector(s);
+  const ymd = d3.utcFormat('%Y-%m-%d');
+  const dayFmt = d3.utcFormat('%a %b %-d');
+  const shortDay = d3.utcFormat('%b %-d');
+  const h1 = d3.format(',.1f');
+  const fmtH = (h) => (h >= 100 ? d3.format(',.0f')(h) : h1(h)) + 'h';
+  const pct = d3.format('.0%');
+  const num = (v) => Number(v) || 0;
+  const isRun = (r) => r.runaway === true || r.runaway === 'true';
+
+  dash.calc('project_pct', {
+    inputs: ['projects'],
+    title: 'Task completion by project',
+    description: 'Share of each project’s tasks that are done (done ÷ total).',
+    fn: (projects) => projects.map((p) => ({ project_id: p.project_id, pct_done: Number(p.total) ? Number(p.done) / Number(p.total) : null })),
+  });
+
+  // ---------- filters ----------
+  const sels = Object.fromEntries([...document.querySelectorAll('.ud-f')].map((el) => [el.dataset.p, el]));
+  for (const [k, el] of Object.entries(sels)) {
+    el.addEventListener('change', () => {
+      const ch = { [k]: el.value || null };
+      if (k === 'client') ch.service = null;
+      if (k === 'team') ch.person = null;
+      if (k === 'month') ch.week = null;
+      dash.setParams(ch);
+    });
+  }
+  const runBox = $('.ud-runaway');
+  runBox.addEventListener('change', () => dash.setParams({ runaway: runBox.checked }));
+  $('.ud-reset').addEventListener('click', () => dash.resetParams());
+  const grainSel = $('.ud-grain');
+  grainSel.addEventListener('change', () => dash.setParams({ grain: grainSel.value }));
+
+  const fill = (el, allLabel, opts, val) => {
+    el.replaceChildren(new Option(allLabel, ''), ...opts.map(([v, l]) => new Option(l, v)));
+    el.value = val && opts.some(([v]) => v === val) ? val : '';
+  };
+  const uniq = (rows, v, l = v) => {
+    const m = new Map();
+    for (const r of rows) if (r[v] != null && r[v] !== '') m.set(String(r[v]), String(r[l]));
+    return [...m].sort((a, b) => d3.ascending(a[0], b[0]));
+  };
+
+  const match = (r, p, skip = []) => {
+    for (const [k, col] of Object.entries(FILTERS)) {
+      if (skip.includes(k)) continue;
+      if (p[k] != null && p[k] !== '' && String(r[col]) !== String(p[k])) return false;
+    }
+    return true;
+  };
+
+  // ---------- period / benchmark ----------
+  const isoMonday = (w) => {
+    const [y, n] = w.split('-W').map(Number);
+    return d3.utcDay.offset(d3.utcMonday.floor(new Date(Date.UTC(y, 0, 4))), (n - 1) * 7);
+  };
+  const period = (p) => {
+    let a = new Date(WIN_START + 'T00:00:00Z');
+    let b = new Date(WIN_END + 'T00:00:00Z');
+    if (p.month) {
+      const m0 = new Date(p.month + '-01T00:00:00Z');
+      const m1 = d3.utcDay.offset(d3.utcMonth.offset(m0, 1), -1);
+      if (m0 > a) a = m0;
+      if (m1 < b) b = m1;
+    }
+    if (p.week) {
+      const w0 = isoMonday(p.week);
+      const w1 = d3.utcDay.offset(w0, 6);
+      if (w0 > a) a = w0;
+      if (w1 < b) b = w1;
+    }
+    const days = b >= a ? d3.utcDay.range(a, d3.utcDay.offset(b, 1)) : [];
+    let wd = 0;
+    for (const d of days) {
+      const g = d.getUTCDay();
+      if (g === 0 || g === 6) continue;
+      wd += ymd(d) === WIN_END ? LAST_DAY_SHARE : 1;
+    }
+    return { days, workdays: wd, bench: wd * BENCH_PER_DAY, label: days.length ? `${shortDay(days[0])}–${shortDay(days[days.length - 1])} 2026` : 'no days in the snapshot' };
+  };
+
+  // ---------- drawing helpers ----------
+  const clearState = (el, st) => {
+    el.replaceChildren();
+    el.classList.toggle('dash-skeleton', st === 'loading');
+    if (st === 'error' || st === 'connect' || st === 'declined' || st === 'missing') {
+      const d = document.createElement('div');
+      d.className = 'ud-empty';
+      d.append(document.createElement('i'), 'Failed to load');
+      el.append(d);
+    }
+  };
+  const emptyLine = (el, text) => {
+    const d = document.createElement('div');
+    d.className = 'ud-empty';
+    d.textContent = text;
+    el.append(d);
+  };
+  const tipFor = (el) => el.parentElement.querySelector('.ud-tip');
+  const showTip = (el, event, head, line) => {
+    const tip = tipFor(el);
+    const card = el.parentElement;
+    const k = document.createElement('div');
+    k.className = 'k';
+    k.textContent = head;
+    const v = document.createElement('div');
+    v.textContent = line;
+    tip.replaceChildren(k, v);
+    tip.style.display = 'block';
+    const r = card.getBoundingClientRect();
+    const tw = tip.offsetWidth;
+    let x = event.clientX - r.left + 12;
+    if (x + tw > r.width - 8) x = Math.max(8, event.clientX - r.left - tw - 12);
+    tip.style.left = x + 'px';
+    tip.style.top = event.clientY - r.top + 12 + 'px';
+  };
+  const hideTip = (el) => { tipFor(el).style.display = 'none'; };
+  const trunc = (s, n) => (s.length > n ? s.slice(0, n - 1) + '…' : s);
+
+  function hbar(el, data, o = {}) {
+    if (!data.length) { emptyLine(el, o.emptyText || 'No hours in this selection.'); return; }
+    const W = Math.max(280, el.clientWidth);
+    const rowH = 22;
+    const top = o.ref ? 20 : 2;
+    const H = top + data.length * rowH + 4;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('height', H).attr('viewBox', `0 0 ${W} ${H}`);
+    const lab = svg.append('g').selectAll('text').data(data).join('text').text((d) => trunc(d.label, o.maxChars || 30));
+    const ml = Math.min(W * 0.45, (d3.max(lab.nodes(), (n) => n.getComputedTextLength()) || 0) + 10);
+    const vals = svg.append('g').selectAll('text').data(data).join('text').attr('class', 'ud-v').text((d) => (o.fmtV || fmtH)(d.value));
+    const mr = (d3.max(vals.nodes(), (n) => n.getComputedTextLength()) || 0) + 8;
+    const max = Math.max(d3.max(data, (d) => d.value) || 0, o.ref || 0) || 1;
+    const x = d3.scaleLinear([0, max], [ml, W - mr]);
+    const yAt = (i) => top + i * rowH;
+    lab.attr('x', ml - 8).attr('y', (d, i) => yAt(i) + rowH / 2).attr('dy', '0.32em').attr('text-anchor', 'end');
+    svg.append('line').attr('x1', ml).attr('x2', ml).attr('y1', top).attr('y2', H - 2).attr('stroke', 'var(--cds-chart-axis)');
+    // One bar per row; a row with `parts` is stacked (e.g. by team).
+    const bars = svg.append('g').selectAll('g').data(data).join('g').style('cursor', o.onClick ? 'pointer' : null);
+    bars.each(function (d, i) {
+      const g = d3.select(this);
+      const parts = d.parts && d.parts.length ? d.parts : [{ value: d.value, color: o.color ? o.color(d) : NEUTRAL }];
+      let acc = 0;
+      for (const pt of parts) {
+        if (!(pt.value > 0) && d.value > 0) continue;
+        g.append('rect').attr('x', x(acc)).attr('y', yAt(i) + 4).attr('height', rowH - 8)
+          .attr('width', Math.max(d.value > 0 ? 1 : 0, x(acc + pt.value) - x(acc)))
+          .attr('rx', parts.length > 1 ? 2 : 4).attr('fill', pt.color)
+          .attr('stroke', parts.length > 1 ? 'var(--color-panel)' : null).attr('stroke-width', 0.5);
+        acc += pt.value;
+      }
+    });
+    vals.attr('x', (d) => x(d.value) + 4).attr('y', (d, i) => yAt(i) + rowH / 2).attr('dy', '0.32em');
+    if (o.ref) {
+      const rx = x(o.ref);
+      svg.append('line').attr('x1', rx).attr('x2', rx).attr('y1', top - 4).attr('y2', H - 2)
+        .attr('stroke', 'var(--cds-chart-reference)').attr('stroke-dasharray', '4 3');
+      const t = svg.append('text').attr('y', 11).text(o.refLabel || fmtH(o.ref));
+      const tw = t.node().getComputedTextLength();
+      if (rx + 4 + tw > W) t.attr('x', rx - 4).attr('text-anchor', 'end'); else t.attr('x', rx + 4);
+    }
+    const hit = svg.append('g').selectAll('rect').data(data).join('rect')
+      .attr('x', 0).attr('width', W).attr('y', (d, i) => yAt(i)).attr('height', rowH).attr('fill', 'transparent')
+      .style('cursor', o.onClick ? 'pointer' : null)
+      .on('mousemove', (event, d) => {
+        bars.attr('opacity', (b) => (b === d ? 1 : 0.55));
+        showTip(el, event, d.label, o.tip ? o.tip(d) : fmtH(d.value));
+      })
+      .on('mouseleave', () => { bars.attr('opacity', 1); hideTip(el); });
+    if (o.onClick) hit.on('click', (event, d) => { hideTip(el); o.onClick(d); });
+  }
+
+  function vbar(el, data) {
+    if (!data.length || !d3.sum(data, (d) => d.value)) { emptyLine(el, 'No hours in this selection.'); return; }
+    const W = Math.max(280, el.clientWidth);
+    const H = 220;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('height', H).attr('viewBox', `0 0 ${W} ${H}`);
+    const y = d3.scaleLinear([0, d3.max(data, (d) => d.value) || 1], [H - 26, 16]).nice();
+    const ticks = y.ticks(4);
+    const tg = svg.append('g');
+    const tt = tg.selectAll('text').data(ticks).join('text').text((d) => d3.format(',')(d) + 'h');
+    const ml = (d3.max(tt.nodes(), (n) => n.getComputedTextLength()) || 0) + 10;
+    tt.attr('x', ml - 6).attr('y', (d) => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end');
+    tg.selectAll('line').data(ticks).join('line').attr('x1', ml).attr('x2', W).attr('y1', (d) => y(d)).attr('y2', (d) => y(d))
+      .attr('stroke', (d) => (d === 0 ? 'var(--cds-chart-axis)' : 'var(--cds-chart-grid)'));
+    const x = d3.scaleBand(data.map((d) => d.key), [ml, W]).padding(0.25);
+    const bw = Math.min(32, x.bandwidth());
+    const bars = svg.append('g').selectAll('rect').data(data).join('rect')
+      .attr('x', (d) => x(d.key) + (x.bandwidth() - bw) / 2).attr('width', bw)
+      .attr('y', (d) => y(d.value)).attr('height', (d) => Math.max(0, y(0) - y(d.value))).attr('rx', 4)
+      .attr('fill', (d) => (d.muted ? 'var(--cds-chart-muted)' : dash.colors[0]));
+    const xl = svg.append('g').selectAll('text').data(data).join('text').text((d) => d.short)
+      .attr('x', (d) => x(d.key) + x.bandwidth() / 2).attr('y', H - 6).attr('text-anchor', 'middle');
+    const lw = d3.max(xl.nodes(), (n) => n.getComputedTextLength()) || 0;
+    const every = Math.max(1, Math.ceil((lw + 10) / x.step()));
+    xl.attr('display', (d, i) => (i % every === 0 ? null : 'none'));
+    svg.append('g').selectAll('rect').data(data).join('rect')
+      .attr('x', (d) => x(d.key)).attr('width', x.bandwidth()).attr('y', 0).attr('height', H - 22).attr('fill', 'transparent')
+      .on('mousemove', (event, d) => {
+        bars.attr('opacity', (b) => (b === d ? 1 : 0.55));
+        showTip(el, event, d.label, fmtH(d.value) + (d.note ? ' · ' + d.note : ''));
+      })
+      .on('mouseleave', () => { bars.attr('opacity', 1); hideTip(el); });
+  }
+
+  // ---------- colors ----------
+  // Fixed team order so each team keeps one color everywhere.
+  const TEAM_ORDER = ['Creative', 'Performance', 'Client Servicing', 'Content & Social', 'Web', 'Admin', 'Management', 'Business Development'];
+  const teamColor = (t) => {
+    const i = TEAM_ORDER.indexOf(t);
+    return i < 0 ? 'var(--cds-chart-muted)' : dash.colors[i % dash.colors.length];
+  };
+  const OTHER = 'Other';
+  const NEUTRAL = 'var(--color-fg-muted)';
+
+  function legend(el, items) {
+    const box = document.createElement('div');
+    box.className = 'ud-legend';
+    for (const it of items) {
+      const s = document.createElement('span');
+      const i = document.createElement('i');
+      i.style.background = it.color;
+      s.append(i, it.label);
+      box.append(s);
+    }
+    el.append(box);
+  }
+
+  // Top n groups by value, the rest folded into "Other".
+  const topN = (pairs, n) => {
+    const sorted = pairs.filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]);
+    if (sorted.length <= n) return sorted;
+    const head = sorted.slice(0, n - 1);
+    return [...head, [OTHER, d3.sum(sorted.slice(n - 1), (d) => d[1])]];
+  };
+
+  function pie(el, data, o = {}) {
+    data = data.filter((d) => d.value > 0);
+    if (!data.length) { emptyLine(el, o.emptyText || 'Nothing in this selection.'); return; }
+    const W = Math.max(280, el.clientWidth);
+    const H = 260;
+    const total = d3.sum(data, (d) => d.value);
+    const fmt = o.fmt || fmtH;
+    const text = (d) => `${trunc(d.label, 22)}, ${fmt(d.value)}`;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('height', H).attr('viewBox', `0 0 ${W} ${H}`);
+    const probe = svg.append('g').selectAll('text').data(data).join('text').text(text);
+    const lw = d3.max(probe.nodes(), (n) => n.getComputedTextLength()) || 0;
+    probe.remove();
+    let r = Math.min(H / 2 - 22, (W - 2 * lw - 48) / 2);
+    const outside = r >= 62;
+    if (!outside) r = Math.min(H / 2 - 12, W / 2 - 12);
+    const g = svg.append('g').attr('transform', `translate(${W / 2},${H / 2})`);
+    const arcs = d3.pie().sort(null).value((d) => d.value)(data);
+    const arc = d3.arc().innerRadius(o.donut ? r * 0.58 : 0).outerRadius(r);
+    const slices = g.selectAll('path').data(arcs).join('path').attr('d', arc)
+      .attr('fill', (a) => a.data.color).attr('stroke', 'var(--color-panel)').attr('stroke-width', 1.5)
+      .style('cursor', o.onClick ? 'pointer' : null)
+      .on('mousemove', (event, a) => {
+        slices.attr('opacity', (b) => (b === a ? 1 : 0.6));
+        showTip(el, event, a.data.label, `${fmt(a.data.value)} · ${pct(a.data.value / total)}`);
+      })
+      .on('mouseleave', () => { slices.attr('opacity', 1); hideTip(el); });
+    if (o.onClick) slices.on('click', (event, a) => { hideTip(el); if (a.data.key !== OTHER) o.onClick(a.data); });
+    if (o.donut) {
+      g.append('text').attr('class', 'ud-v').attr('text-anchor', 'middle').attr('dy', '-0.1em')
+        .style('font-family', 'var(--font-anthropic-serif)').style('font-size', 'var(--cds-font-size-title)').text(fmt(total));
+      g.append('text').attr('text-anchor', 'middle').attr('dy', '1.4em').text(o.centerLabel || 'total');
+    }
+    if (!outside) {
+      legend(el, data.map((d) => ({ color: d.color, label: `${d.label} · ${fmt(d.value)}` })));
+      return;
+    }
+    // Outside labels with leader lines, pushed apart on each side.
+    const mid = (a) => (a.startAngle + a.endAngle) / 2;
+    const items = arcs.map((a) => {
+      const m = mid(a);
+      const right = Math.sin(m) >= 0;
+      return { a, right, y: -Math.cos(m) * (r + 12), px: Math.sin(m) * r, py: -Math.cos(m) * r };
+    });
+    for (const side of [true, false]) {
+      const s = items.filter((d) => d.right === side).sort((a, b) => a.y - b.y);
+      const minY = -H / 2 + 8, maxY = H / 2 - 8, gap = 14;
+      for (let i = 0; i < s.length; i++) s[i].y = Math.max(s[i].y, i ? s[i - 1].y + gap : minY);
+      for (let i = s.length - 1; i >= 0; i--) s[i].y = Math.min(s[i].y, i < s.length - 1 ? s[i + 1].y - gap : maxY);
+    }
+    const lx = (d) => (d.right ? r + 18 : -(r + 18));
+    g.append('g').selectAll('polyline').data(items).join('polyline')
+      .attr('points', (d) => `${d.px},${d.py} ${(d.right ? 1 : -1) * (r + 8)},${d.y} ${lx(d)},${d.y}`)
+      .attr('fill', 'none').attr('stroke', 'var(--cds-chart-axis)');
+    g.append('g').selectAll('text').data(items).join('text')
+      .attr('x', (d) => lx(d) + (d.right ? 4 : -4)).attr('y', (d) => d.y).attr('dy', '0.32em')
+      .attr('text-anchor', (d) => (d.right ? 'start' : 'end')).text((d) => text(d.a.data));
+  }
+
+  function grouped(el, groups, series, val) {
+    if (!groups.length || !series.length) { emptyLine(el, 'No hours in this selection.'); return; }
+    const W = Math.max(280, el.clientWidth);
+    const H = 240;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('height', H).attr('viewBox', `0 0 ${W} ${H}`);
+    const max = d3.max(groups, (gp) => d3.max(series, (s) => val(gp.key, s.key))) || 1;
+    const y = d3.scaleLinear([0, max], [H - 24, 18]).nice();
+    const ticks = y.ticks(5);
+    const tg = svg.append('g');
+    const tt = tg.selectAll('text').data(ticks).join('text').text((d) => d3.format(',')(d) + 'h');
+    const ml = (d3.max(tt.nodes(), (n) => n.getComputedTextLength()) || 0) + 10;
+    tt.attr('x', ml - 6).attr('y', (d) => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end');
+    tg.selectAll('line').data(ticks).join('line').attr('x1', ml).attr('x2', W).attr('y1', (d) => y(d)).attr('y2', (d) => y(d))
+      .attr('stroke', (d) => (d === 0 ? 'var(--cds-chart-axis)' : 'var(--cds-chart-grid)'));
+    const x0 = d3.scaleBand(groups.map((d) => d.key), [ml, W]).paddingInner(0.18).paddingOuter(0.05);
+    const x1 = d3.scaleBand(series.map((d) => d.key), [0, x0.bandwidth()]).padding(0.08);
+    const cells = groups.flatMap((gp) => series.map((s) => ({ g: gp, s, v: val(gp.key, s.key) })));
+    const bars = svg.append('g').selectAll('rect').data(cells).join('rect')
+      .attr('x', (d) => x0(d.g.key) + x1(d.s.key)).attr('width', x1.bandwidth())
+      .attr('y', (d) => y(d.v)).attr('height', (d) => Math.max(0, y(0) - y(d.v))).attr('rx', Math.min(3, x1.bandwidth() / 2))
+      .attr('fill', (d) => d.s.color)
+      .on('mousemove', (event, d) => {
+        bars.attr('opacity', (b) => (b === d ? 1 : 0.55));
+        showTip(el, event, d.g.label, `${d.s.label}: ${fmtH(d.v)}`);
+      })
+      .on('mouseleave', () => { bars.attr('opacity', 1); hideTip(el); });
+    if (x1.bandwidth() >= 16) {
+      svg.append('g').selectAll('text').data(cells.filter((d) => d.v > 0)).join('text')
+        .attr('x', (d) => x0(d.g.key) + x1(d.s.key) + x1.bandwidth() / 2).attr('y', (d) => y(d.v) - 4)
+        .attr('text-anchor', 'middle').text((d) => d3.format('.0f')(d.v));
+    }
+    const maxChars = Math.max(4, Math.floor(x0.step() / 7));
+    svg.append('g').selectAll('text').data(groups).join('text')
+      .attr('x', (d) => x0(d.key) + x0.bandwidth() / 2).attr('y', H - 6).attr('text-anchor', 'middle')
+      .text((d) => trunc(d.label, maxChars));
+    legend(el, series.map((s) => ({ color: s.color, label: s.label })));
+  }
+
+  function vstack(el, data, series, fmt = fmtH) {
+    // data: [{key, label, short, muted, parts: Map(seriesKey -> value)}]
+    const tot = (d) => d3.sum([...d.parts.values()]);
+    if (!data.length || !d3.sum(data, tot)) { emptyLine(el, 'Nothing in this selection.'); return; }
+    const W = Math.max(280, el.clientWidth);
+    const H = 220;
+    const svg = d3.select(el).append('svg').attr('width', '100%').attr('height', H).attr('viewBox', `0 0 ${W} ${H}`);
+    const y = d3.scaleLinear([0, d3.max(data, tot) || 1], [H - 26, 16]).nice();
+    const ticks = y.ticks(4);
+    const tg = svg.append('g');
+    const tt = tg.selectAll('text').data(ticks).join('text').text((d) => d3.format(',')(d) + 'h');
+    const ml = (d3.max(tt.nodes(), (n) => n.getComputedTextLength()) || 0) + 10;
+    tt.attr('x', ml - 6).attr('y', (d) => y(d)).attr('dy', '0.32em').attr('text-anchor', 'end');
+    tg.selectAll('line').data(ticks).join('line').attr('x1', ml).attr('x2', W).attr('y1', (d) => y(d)).attr('y2', (d) => y(d))
+      .attr('stroke', (d) => (d === 0 ? 'var(--cds-chart-axis)' : 'var(--cds-chart-grid)'));
+    const x = d3.scaleBand(data.map((d) => d.key), [ml, W]).padding(0.25);
+    const bw = Math.min(32, x.bandwidth());
+    const segs = data.flatMap((d) => {
+      let acc = 0;
+      return series.filter((s) => d.parts.get(s.key)).map((s) => {
+        const v = d.parts.get(s.key);
+        const seg = { d, s, y0: acc, y1: acc + v };
+        acc += v;
+        return seg;
+      });
+    });
+    svg.append('g').selectAll('rect').data(segs).join('rect')
+      .attr('x', (k) => x(k.d.key) + (x.bandwidth() - bw) / 2).attr('width', bw)
+      .attr('y', (k) => y(k.y1)).attr('height', (k) => Math.max(0, y(k.y0) - y(k.y1)))
+      .attr('fill', (k) => k.s.color).attr('stroke', 'var(--color-panel)').attr('stroke-width', 0.5);
+    svg.append('g').selectAll('text').data(data.filter((d) => tot(d) > 0 && x.bandwidth() >= 22)).join('text')
+      .attr('class', 'ud-v').attr('x', (d) => x(d.key) + x.bandwidth() / 2).attr('y', (d) => y(tot(d)) - 4)
+      .attr('text-anchor', 'middle').text((d) => d3.format('.0f')(tot(d)));
+    const xl = svg.append('g').selectAll('text').data(data).join('text').text((d) => d.short)
+      .attr('x', (d) => x(d.key) + x.bandwidth() / 2).attr('y', H - 6).attr('text-anchor', 'middle');
+    const lw = d3.max(xl.nodes(), (n) => n.getComputedTextLength()) || 0;
+    const every = Math.max(1, Math.ceil((lw + 10) / x.step()));
+    xl.attr('display', (d, i) => (i % every === 0 ? null : 'none'));
+    svg.append('g').selectAll('rect').data(data).join('rect')
+      .attr('x', (d) => x(d.key)).attr('width', x.bandwidth()).attr('y', 0).attr('height', H - 22).attr('fill', 'transparent')
+      .on('mousemove', (event, d) => {
+        const parts = series.filter((s) => d.parts.get(s.key)).map((s) => `${s.label} ${fmt(d.parts.get(s.key))}`).join(', ');
+        showTip(el, event, `${d.label}${d.muted ? ' (weekend)' : ''}`, `${fmt(tot(d))}${parts ? ' · ' + parts : ''}`);
+      })
+      .on('mouseleave', () => hideTip(el));
+    legend(el, series.map((s) => ({ color: s.color, label: s.label })));
+  }
+
+  // ---------- sortable, searchable tables ----------
+  const tables = {};
+  function setupTable(sel, qsel, def) {
+    const t = { table: $(sel), q: $(qsel), sort: def, rows: [], render: null };
+    t.table.querySelectorAll('th button').forEach((b) => b.addEventListener('click', () => {
+      const k = b.dataset.k;
+      t.sort = { k, dir: t.sort.k === k && t.sort.dir === 'desc' ? 'asc' : 'desc' };
+      t.render();
+    }));
+    t.q.addEventListener('input', () => t.render());
+    return t;
+  }
+  function renderTable(t, cols, keyOf) {
+    const q = t.q.value.trim().toLowerCase();
+    const { k, dir } = t.sort;
+    const rows = t.rows.filter((r) => !q || cols.some((c) => String(r[c.k] ?? '').toLowerCase().includes(q)));
+    const numeric = cols.find((c) => c.k === k)?.num;
+    rows.sort((a, b) => {
+      const av = numeric ? (a[k] ?? -1) : String(a[k] ?? '');
+      const bv = numeric ? (b[k] ?? -1) : String(b[k] ?? '');
+      return dir === 'asc' ? d3.ascending(av, bv) : d3.descending(av, bv);
+    });
+    t.table.querySelectorAll('th').forEach((th) => {
+      const b = th.querySelector('button');
+      th.setAttribute('aria-sort', b && b.dataset.k === k ? (dir === 'asc' ? 'ascending' : 'descending') : 'none');
+    });
+    const tb = t.table.querySelector('tbody');
+    tb.replaceChildren(...rows.map((r) => {
+      const tr = document.createElement('tr');
+      tr.dataset.key = keyOf(r);
+      for (const c of cols) {
+        const td = document.createElement('td');
+        if (c.num) td.className = 'n';
+        if (c.wide) td.classList.add('wide');
+        if (c.cell) c.cell(td, r); else td.textContent = r[c.k] ?? '';
+        tr.append(td);
+      }
+      return tr;
+    }));
+  }
+
+  tables.proj = setupTable('.ud-t-proj', '.ud-q-proj', { k: 'overdue', dir: 'desc' });
+  tables.log = setupTable('.ud-t-log', '.ud-q-log', { k: 'date', dir: 'desc' });
+  const projCols = [
+    { k: 'service_group' },
+    { k: 'service', wide: true },
+    { k: 'project' },
+    { k: 'done', num: true },
+    { k: 'total', num: true },
+    { k: 'overdue', num: true, cell: (td, r) => { td.textContent = r.overdue; if (r.overdue > 0) td.classList.add('bad'); } },
+    { k: 'pct_done', num: true, cell: (td, r) => {
+      if (r.pct_done == null) { td.textContent = '—'; return; }
+      const bar = document.createElement('span');
+      bar.className = 'ud-bar';
+      const i = document.createElement('i');
+      i.style.width = Math.round(r.pct_done * 100) + '%';
+      i.style.background = dash.colors[0];
+      bar.append(i);
+      td.append(bar, pct(r.pct_done));
+    } },
+  ];
+  const logCols = [
+    { k: 'date', cell: (td, r) => { td.textContent = dayFmt(new Date(r.date + 'T00:00:00Z')); } },
+    { k: 'person' },
+    { k: 'team', wide: true },
+    { k: 'service_group' },
+    { k: 'service', wide: true },
+    { k: 'project' },
+    { k: 'hours', num: true, cell: (td, r) => { td.textContent = d3.format('.2f')(r.hours); if (r.runaway) { td.classList.add('warn'); td.title = 'Runaway timer (over 12h)'; } } },
+  ];
+  tables.proj.render = () => renderTable(tables.proj, projCols, (r) => r.project_id);
+  tables.rev = setupTable('.ud-t-rev', '.ud-q-rev', { k: 'date', dir: 'desc' });
+  tables.ck = setupTable('.ud-t-ck', '.ud-q-ck', { k: 'date', dir: 'desc' });
+  const flagCols = (kind) => [
+    { k: 'date', cell: (td, r) => { td.textContent = dayFmt(new Date(r.date + 'T00:00:00Z')); } },
+    { k: 'person' },
+    { k: 'service_group' },
+    { k: 'task', wide: true },
+    { k: 'log_name' },
+    { k: kind, wide: true },
+    { k: 'hours', num: true, cell: (td, r) => { td.textContent = d3.format('.2f')(r.hours); } },
+  ];
+  tables.rev.render = () => renderTable(tables.rev, flagCols('revision_type'), (r) => r.session);
+  tables.ck.render = () => renderTable(tables.ck, flagCols('clockin_type'), (r) => r.session);
+
+  // ---------- tabs ----------
+  const TABS = ['overview', 'revisions', 'clockin'];
+  let tab = TABS.includes(location.hash.slice(1)) ? location.hash.slice(1) : 'overview';
+  const showTab = () => {
+    for (const t of TABS) {
+      document.getElementById(t).hidden = t !== tab;
+      document.getElementById('tab-' + t).setAttribute('aria-selected', String(t === tab));
+    }
+  };
+  showTab();
+  document.querySelectorAll('.ud-tabs button').forEach((b) => b.addEventListener('click', () => {
+    tab = b.dataset.tab;
+    showTab();
+    dash.setLink(tab);
+    draw();
+  }));
+  tables.log.render = () => renderTable(tables.log, logCols, (r) => r.session);
+
+  let firstDraw = true;
+
+  function draw() {
+    const S = dash.data('sessions');
+    const PP = dash.data('people');
+    const PR = dash.data('projects');
+    const PC = dash.data('project_pct');
+    const p = dash.params();
+    const okS = S.status === 'ok';
+    const okP = PP.status === 'ok';
+    const okR = PR.status === 'ok';
+
+    const all = okS ? S.data.map((r) => ({ ...r, hours: num(r.hours), runaway: isRun(r) })) : [];
+    const people = okP ? PP.data : [];
+
+    // controls
+    fill(sels.month, 'All months', uniq(all, 'month', 'month_label'), p.month);
+    fill(sels.week, 'All weeks', uniq(all.filter((r) => !p.month || r.month === p.month), 'week', 'week_label'), p.week);
+    fill(sels.client, 'All service groups', uniq(all, 'service_group'), p.client);
+    fill(sels.service, 'All services', uniq(all.filter((r) => !p.client || r.service_group === p.client), 'service'), p.service);
+    fill(sels.team, 'All teams', uniq(people, 'team'), p.team);
+    fill(sels.person, 'All people', uniq(people.filter((r) => !p.team || r.team === p.team), 'person'), p.person);
+    runBox.checked = !!p.runaway;
+    grainSel.value = p.grain === 'week' ? 'week' : 'day';
+    document.querySelectorAll('.ud-grain-word').forEach((el) => { el.textContent = grainSel.value; });
+
+    const per = period(p);
+    const scoped = all.filter((r) => match(r, p));
+    const rows = scoped.filter((r) => p.runaway || !r.runaway);
+    const total = d3.sum(rows, (r) => r.hours);
+    const clientScoped = !!(p.client || p.service);
+    const peopleScope = people.filter((u) => (!p.team || u.team === p.team) && (!p.person || u.person === p.person));
+    const byPerson = d3.rollup(rows, (v) => d3.sum(v, (r) => r.hours), (r) => r.person);
+    const active = byPerson.size;
+
+    // tiles
+    const tile = (id, big, sub, st) => {
+      const el = document.getElementById(id);
+      const b = $('.big', el);
+      b.classList.toggle('dash-skeleton', st === 'loading');
+      b.textContent = st === 'ok' ? big : '—';
+      $('.sub', el).textContent = st === 'ok' ? sub : st === 'loading' ? '' : 'Failed to load';
+    };
+    const stSP = okS && okP ? 'ok' : (S.status === 'loading' || PP.status === 'loading') ? 'loading' : 'error';
+    const projs = okR ? PR.data.filter((r) => (!p.client || r.service_group === p.client) && (!p.service || r.service === p.service)) : [];
+      // ---------- revisions & clock-in pages ----------
+      const hide = (r) => p.runaway || !r.runaway;
+      const cnt = d3.format(',');
+      const logsFmt = (v) => cnt(v) + (v === 1 ? ' log' : ' logs');
+      const stS = okS ? 'ok' : S.status === 'loading' ? 'loading' : 'error';
+      const timeData = (rs, val) => {
+        if (grainSel.value === 'week') {
+          return [...d3.group(rs, (r) => r.week)].sort((a, b) => d3.ascending(a[0], b[0])).map(([w, v]) => ({
+            key: w, label: v[0].week_label, short: v[0].week_label.split(' · ')[0], parts: d3.rollup(v, val, (r) => r.team) }));
+        }
+        const byDay = d3.group(rs, (r) => r.date);
+        return per.days.map((d) => {
+          const k = ymd(d);
+          return { key: k, label: dayFmt(d), short: shortDay(d), muted: d.getUTCDay() === 0 || d.getUTCDay() === 6,
+            parts: d3.rollup(byDay.get(k) || [], val, (r) => r.team) };
+        });
+      };
+      const seriesOf = (rs) => TEAM_ORDER.filter((t) => rs.some((r) => r.team === t)).map((t) => ({ key: t, label: t, color: teamColor(t) }));
+      const partsBy = (rs, val) => {
+        const m = d3.rollup(rs, val, (r) => r.team);
+        return TEAM_ORDER.filter((t) => m.get(t) > 0).map((t) => ({ key: t, value: m.get(t), color: teamColor(t) }));
+      };
+      const partList = (d, f) => (d.parts && d.parts.length > 1 ? ' · ' + d.parts.map((pt) => `${pt.key} ${f(pt.value)}`).join(', ') : '');
+
+      if (tab === 'revisions') {
+        const rv = rows.filter((r) => r.revision === true || r.revision === 'true');
+        const rvH = d3.sum(rv, (r) => r.hours);
+        const tasks = d3.groups(rv, (r) => r.item_id || r.task);
+        const ppl = new Set(rv.map((r) => r.person));
+        tile('tile-rev-count', cnt(rv.length), `${per.label}`, stS);
+        tile('tile-rev-tasks', cnt(tasks.length), tasks.length ? `${d3.format('.1f')(rv.length / tasks.length)} revision logs per task` : 'none in this selection', stS);
+        tile('tile-rev-hours', fmtH(rvH), `${pct(total ? rvH / total : 0)} of all hours logged in the selection`, stS);
+        tile('tile-rev-people', cnt(ppl.size), ppl.size ? [...d3.rollup(rv, (v) => v.length, (r) => r.person)].sort((a, b) => b[1] - a[1]).slice(0, 3).map(([n, v]) => `${n} ${v}`).join(', ') : '—', stS);
+
+        const count = (v) => v.length;
+        const gEl = document.getElementById('chart-rev-group');
+        clearState(gEl, S.status);
+        if (okS) {
+          const byG = d3.group(rv, (r) => r.service_group);
+          const data = [...byG].map(([k, v]) => ({ key: k, label: k, value: v.length, parts: partsBy(v, count) })).sort((a, b) => b.value - a.value);
+          hbar(gEl, data, { fmtV: cnt, emptyText: 'No revision logs in this selection.', tip: (d) => logsFmt(d.value) + partList(d, cnt),
+            onClick: (d) => dash.setParams({ client: d.key === p.client ? null : d.key, service: null }) });
+          if (data.length) legend(gEl, seriesOf(rv));
+        }
+        const pEl2 = document.getElementById('chart-rev-person');
+        clearState(pEl2, S.status);
+        if (okS) {
+          const teamOf2 = new Map(rv.map((r) => [r.person, r.team]));
+          const data = d3.rollups(rv, count, (r) => r.person).map(([k, v]) => ({ key: k, label: k, value: v })).sort((a, b) => b.value - a.value);
+          hbar(pEl2, data, { fmtV: cnt, emptyText: 'No revision logs in this selection.', color: (d) => teamColor(teamOf2.get(d.key)),
+            tip: (d) => `${logsFmt(d.value)} · ${teamOf2.get(d.key)}`,
+            onClick: (d) => dash.setParams({ person: d.key === p.person ? null : d.key }) });
+        }
+        const tEl2 = document.getElementById('chart-rev-time');
+        clearState(tEl2, S.status);
+        if (okS) vstack(tEl2, timeData(rv, count), seriesOf(rv), logsFmt);
+        const kEl = document.getElementById('chart-rev-type');
+        clearState(kEl, S.status);
+        if (okS) {
+          hbar(kEl, d3.rollups(rv, count, (r) => r.revision_type).map(([k, v]) => ({ key: k, label: k, value: v })).sort((a, b) => b.value - a.value),
+            { fmtV: cnt, emptyText: 'No revision logs in this selection.', tip: (d) => logsFmt(d.value) });
+        }
+        // most-revised tasks
+        const tb = $('.ud-t-revtask tbody');
+        tb.replaceChildren(...tasks.map(([, v]) => v).sort((a, b) => b.length - a.length || d3.sum(b, (r) => r.hours) - d3.sum(a, (r) => r.hours)).map((v) => {
+          const tr = document.createElement('tr');
+          const cells = [v[0].task, v[0].service_group, v[0].project, cnt(v.length), d3.format('.2f')(d3.sum(v, (r) => r.hours)), [...new Set(v.map((r) => r.person))].join(', ')];
+          cells.forEach((c, i) => {
+            const td = document.createElement('td');
+            td.textContent = c;
+            if (i === 3 || i === 4) td.className = 'n';
+            if (i === 2 || i === 5) td.classList.add('wide');
+            tr.append(td);
+          });
+          return tr;
+        }));
+        tables.rev.rows = rv;
+        tables.rev.render();
+      }
+
+      if (tab === 'clockin') {
+        const ck = rows.filter((r) => r.clockin === true || r.clockin === 'true');
+        const ckH = d3.sum(ck, (r) => r.hours);
+        const ppl = new Set(ck.map((r) => r.person));
+        tile('tile-ck-hours', fmtH(ckH), `${pct(total ? ckH / total : 0)} of all hours logged in the selection`, stS);
+        tile('tile-ck-logs', cnt(ck.length), per.label, stS);
+        tile('tile-ck-people', cnt(ppl.size), ppl.size ? [...ppl].join(', ') : 'nobody in this selection', stS);
+        tile('tile-ck-avg', ppl.size ? fmtH(ckH / ppl.size) : '—', `vs ${fmtH(per.bench)} benchmark for the period`, stS);
+        const hrs = (v) => d3.sum(v, (r) => r.hours);
+        const pEl3 = document.getElementById('chart-ck-person');
+        clearState(pEl3, S.status);
+        if (okS) {
+          const teamOf3 = new Map(ck.map((r) => [r.person, r.team]));
+          hbar(pEl3, d3.rollups(ck, hrs, (r) => r.person).map(([k, v]) => ({ key: k, label: k, value: v })).sort((a, b) => b.value - a.value), {
+            emptyText: 'No clock-in time in this selection.', color: (d) => teamColor(teamOf3.get(d.key)),
+            tip: (d) => `${fmtH(d.value)} · ${teamOf3.get(d.key)}`,
+            onClick: (d) => dash.setParams({ person: d.key === p.person ? null : d.key }) });
+        }
+        const gEl3 = document.getElementById('chart-ck-group');
+        clearState(gEl3, S.status);
+        if (okS) {
+          const data = [...d3.group(ck, (r) => r.service_group)].map(([k, v]) => ({ key: k, label: k, value: hrs(v), parts: partsBy(v, hrs) })).sort((a, b) => b.value - a.value);
+          hbar(gEl3, data, { emptyText: 'No clock-in time in this selection.', tip: (d) => fmtH(d.value) + partList(d, fmtH),
+            onClick: (d) => dash.setParams({ client: d.key === p.client ? null : d.key, service: null }) });
+          if (data.length) legend(gEl3, seriesOf(ck));
+        }
+        const tEl3 = document.getElementById('chart-ck-time');
+        clearState(tEl3, S.status);
+        if (okS) vstack(tEl3, timeData(ck, hrs), seriesOf(ck), fmtH);
+        const kEl3 = document.getElementById('chart-ck-type');
+        clearState(kEl3, S.status);
+        if (okS) hbar(kEl3, d3.rollups(ck, hrs, (r) => r.clockin_type).map(([k, v]) => ({ key: k, label: k, value: v })).sort((a, b) => b.value - a.value),
+          { emptyText: 'No clock-in time in this selection.' });
+        tables.ck.rows = ck;
+        tables.ck.render();
+      }
+
+    if (tab === 'overview') {
+    const cap = peopleScope.length * per.bench;
+    tile('tile-hours', fmtH(total), clientScoped
+      ? `on ${p.service ? p.service + ' · ' : ''}${p.client || 'all service groups'}, ${per.label}`
+      : `${cap ? pct(total / cap) : '—'} of capacity (${peopleScope.length} people × ${fmtH(per.bench)}), ${per.label}`, okS ? 'ok' : S.status === 'loading' ? 'loading' : 'error');
+    tile('tile-people', `${active} of ${peopleScope.length}`, `${peopleScope.length - [...byPerson.keys()].filter((n) => peopleScope.some((u) => u.person === n)).length} with no hours${clientScoped ? ' on this scope' : ''}`, stSP);
+    tile('tile-avg', active ? fmtH(total / active) : '—', `benchmark ${fmtH(per.bench)} (${d3.format('.1~f')(per.workdays)} working days × ${BENCH_PER_DAY}h)`, stSP);
+    const done = d3.sum(projs, (r) => num(r.done));
+    const tot = d3.sum(projs, (r) => num(r.total));
+    const od = d3.sum(projs, (r) => num(r.overdue));
+    tile('tile-tasks', `${d3.format(',')(done)} / ${d3.format(',')(tot)}`, `${d3.format(',')(od)} overdue · ${projs.length} projects`, okR ? 'ok' : PR.status === 'loading' ? 'loading' : 'error');
+
+    // takeaway
+    const take = $('.ud-take');
+    take.classList.toggle('dash-skeleton', stSP === 'loading');
+    if (stSP === 'ok') {
+      const byClient = d3.rollups(rows, (v) => d3.sum(v, (r) => r.hours), (r) => r.service_group).sort((a, b) => b[1] - a[1]);
+      const zero = peopleScope.length - [...byPerson.keys()].filter((n) => peopleScope.some((u) => u.person === n)).length;
+      let s = `${fmtH(total)} logged by ${active} of ${peopleScope.length} people (${per.label}), ${active ? fmtH(total / active) : '0h'} each on average against a ${fmtH(per.bench)} benchmark.`;
+      if (byClient.length && !p.client) s += ` Most time went to ${byClient[0][0]} (${fmtH(byClient[0][1])}, ${pct(total ? byClient[0][1] / total : 0)}).`;
+      if (zero > 0 && !clientScoped) s += ` ${zero} ${zero === 1 ? 'person' : 'people'} logged nothing.`;
+      take.textContent = s;
+    } else take.textContent = stSP === 'loading' ? '—' : 'Failed to load';
+
+    const groupRank = d3.rollups(rows, (v) => d3.sum(v, (r) => r.hours), (r) => r.service_group).sort((a, b) => b[1] - a[1]);
+    const teamsIn = TEAM_ORDER.filter((t) => rows.some((r) => r.team === t));
+    const teamSeries = teamsIn.map((t) => ({ key: t, label: t, color: teamColor(t) }));
+    // split a set of rows into team-colored parts, in fixed team order
+    const teamParts = (rs) => {
+      const m = d3.rollup(rs, (v) => d3.sum(v, (r) => r.hours), (r) => r.team);
+      return TEAM_ORDER.filter((t) => m.get(t) > 0).map((t) => ({ key: t, value: m.get(t), color: teamColor(t) }));
+    };
+    const partsTip = (d) => `${fmtH(d.value)} · ${pct(total ? d.value / total : 0)} of selection` +
+      (d.parts && d.parts.length > 1 ? ' · ' + d.parts.map((pt) => `${pt.key} ${fmtH(pt.value)}`).join(', ') : '');
+
+    // projects by condition (only "at risk" stands out)
+    const condEl = document.getElementById('chart-condition');
+    clearState(condEl, PR.status);
+    if (okR) {
+      const cond = (r) => (num(r.total) > 0 && num(r.done) >= num(r.total) ? 'Completed' : num(r.overdue) > 0 ? 'At risk (overdue tasks)' : 'On track');
+      const cnt = d3.rollup(projs, (v) => v.length, cond);
+      const condColors = { 'On track': 'var(--cds-chart-muted)', 'Completed': NEUTRAL, 'At risk (overdue tasks)': 'var(--cds-chart-status-critical)' };
+      pie(condEl, Object.keys(condColors).map((k) => ({ key: k, label: k, value: cnt.get(k) || 0, color: condColors[k] })),
+        { fmt: (v) => d3.format(',')(v), emptyText: 'No projects in this selection.' });
+    }
+
+    // overdue tasks by service group
+    const odEl = document.getElementById('chart-overdue');
+    clearState(odEl, PR.status);
+    if (okR) {
+      const od2 = d3.rollups(projs, (v) => d3.sum(v, (r) => num(r.overdue)), (r) => r.service_group)
+        .filter(([, v]) => v > 0).sort((a, b) => b[1] - a[1]).slice(0, 10);
+      const tasksFmt = (v) => d3.format(',')(v) + (v === 1 ? ' task' : ' tasks');
+      hbar(odEl, od2.map(([k, v]) => ({ key: k, label: k, value: v })), {
+        fmtV: (v) => d3.format(',')(v),
+        tip: (d) => tasksFmt(d.value),
+        emptyText: 'No overdue tasks in this selection.',
+        onClick: (d) => dash.setParams({ client: d.key === p.client ? null : d.key, service: null }),
+      });
+    }
+
+    // hours by service group, split by team
+    const cEl = document.getElementById('chart-client');
+    clearState(cEl, S.status);
+    if (okS) {
+      const byGroup = d3.group(rows, (r) => r.service_group);
+      hbar(cEl, groupRank.map(([k, v]) => ({ key: k, label: k, value: v, parts: teamParts(byGroup.get(k)) })), {
+        tip: partsTip,
+        onClick: (d) => dash.setParams({ client: d.key === p.client ? null : d.key, service: null }),
+      });
+      if (rows.length) legend(cEl, teamSeries);
+    }
+
+    // hours by team (donut)
+    const tmEl = document.getElementById('chart-team');
+    clearState(tmEl, S.status);
+    if (okS) {
+      const byTeam = d3.rollup(rows, (v) => d3.sum(v, (r) => r.hours), (r) => r.team);
+      pie(tmEl, teamsIn.map((t) => ({ key: t, label: t, value: byTeam.get(t) || 0, color: teamColor(t) })), {
+        donut: true, centerLabel: 'hours',
+        onClick: (d) => dash.setParams({ team: d.key === p.team ? null : d.key, person: null }),
+      });
+    }
+
+    // service group x team (grouped bars)
+    const gtEl = document.getElementById('chart-groupteam');
+    clearState(gtEl, S.status);
+    if (okS) {
+      const gt = d3.rollup(rows, (v) => d3.sum(v, (r) => r.hours), (r) => r.service_group, (r) => r.team);
+      const groups = groupRank.slice(0, 6).map(([k]) => ({ key: k, label: k.replace(/^GCH - /, '') }));
+      grouped(gtEl, groups, teamSeries, (gk, tk) => gt.get(gk)?.get(tk) || 0);
+    }
+
+    // time chart (stacked by team)
+    const tEl = document.getElementById('chart-time');
+    clearState(tEl, S.status === 'ok' ? 'ok' : S.status);
+    if (okS) {
+      let data;
+      if (grainSel.value === 'week') {
+        const byWeek = d3.group(rows, (r) => r.week);
+        data = [...byWeek].sort((a, b) => d3.ascending(a[0], b[0])).map(([w, v]) => ({
+          key: w, label: v[0].week_label, short: v[0].week_label.split(' · ')[0],
+          parts: d3.rollup(v, (x) => d3.sum(x, (r) => r.hours), (r) => r.team),
+        }));
+      } else {
+        const byDay = d3.group(rows, (r) => r.date);
+        data = per.days.map((d) => {
+          const k = ymd(d);
+          return { key: k, label: dayFmt(d), short: shortDay(d), muted: d.getUTCDay() === 0 || d.getUTCDay() === 6,
+            parts: d3.rollup(byDay.get(k) || [], (x) => d3.sum(x, (r) => r.hours), (r) => r.team) };
+        });
+      }
+      vstack(tEl, data, teamSeries);
+    }
+
+    // person chart
+    const pEl = document.getElementById('chart-person');
+    clearState(pEl, stSP);
+    const teamOf = new Map(people.map((u) => [u.person, u.team]));
+    if (stSP === 'ok') {
+      const list = clientScoped
+        ? [...byPerson].map(([n, v]) => ({ key: n, label: n, value: v }))
+        : peopleScope.map((u) => ({ key: u.person, label: u.person, value: byPerson.get(u.person) || 0 }));
+      list.sort((a, b) => b.value - a.value || d3.ascending(a.label, b.label));
+      hbar(pEl, list, {
+        ref: clientScoped ? null : per.bench,
+        refLabel: `Benchmark ${fmtH(per.bench)}`,
+        tip: (d) => `${fmtH(d.value)} · ${teamOf.get(d.key) || ''}${per.bench && !clientScoped ? ' · ' + pct(d.value / per.bench) + ' of benchmark' : ''}`,
+        color: (d) => (d.value === 0 ? 'var(--cds-chart-muted)' : teamColor(teamOf.get(d.key))),
+        onClick: (d) => dash.setParams({ person: d.key === p.person ? null : d.key }),
+      });
+      const shown = TEAM_ORDER.filter((t) => list.some((d) => teamOf.get(d.key) === t));
+      if (list.length) legend(pEl, shown.map((t) => ({ color: teamColor(t), label: t })));
+    }
+
+    const group = (keyFn, labelFn = keyFn) => d3.rollups(rows, (v) => d3.sum(v, (r) => r.hours), keyFn)
+      .map(([k, v]) => {
+        const r0 = rows.find((r) => keyFn(r) === k);
+        return { key: k, label: labelFn(r0), value: v, sg: r0.service_group };
+      })
+      .sort((a, b) => b.value - a.value);
+    const share = (d) => `${fmtH(d.value)} · ${pct(total ? d.value / total : 0)} of selection`;
+
+    const sEl = document.getElementById('chart-service');
+    clearState(sEl, S.status);
+    if (okS) {
+      const sv = group((r) => r.service_group + '\u0001' + r.service, (r) => `${r.service} · ${r.service_group}`).slice(0, 15);
+      for (const d of sv) d.parts = teamParts(rows.filter((r) => r.service_group + '\u0001' + r.service === d.key));
+      hbar(sEl, sv, { maxChars: 34, tip: partsTip,
+        onClick: (d) => { const [c, s] = d.key.split('\u0001'); dash.setParams({ client: c, service: s }); } });
+    }
+
+    const prEl = document.getElementById('chart-project');
+    clearState(prEl, S.status);
+    if (okS) {
+      const pv = group((r) => r.project_id, (r) => `${r.project} (${r.service_group})`).slice(0, 15);
+      for (const d of pv) d.parts = teamParts(rows.filter((r) => r.project_id === d.key));
+      hbar(prEl, pv, { maxChars: 36, tip: (d) => {
+        const ppl = d3.rollups(rows.filter((r) => r.project_id === d.key), (v) => d3.sum(v, (r) => r.hours), (r) => r.person)
+          .sort((a, b) => b[1] - a[1]).map(([n, v]) => `${n} ${fmtH(v)}`).join(', ');
+        return `${fmtH(d.value)} · ${ppl}`;
+      } });
+    }
+    // deliverables table
+    const pctBy = new Map(PC.status === 'ok' ? PC.data.map((r) => [r.project_id, r.pct_done]) : []);
+    tables.proj.rows = projs.map((r) => ({ ...r, done: num(r.done), total: num(r.total), overdue: num(r.overdue), pct_done: pctBy.has(r.project_id) ? pctBy.get(r.project_id) : null }));
+    tables.proj.render();
+
+    // time log
+    tables.log.rows = rows;
+    tables.log.render();
+
+    // data checks
+    const rl = $('.ud-runlist');
+    rl.replaceChildren();
+    if (okS) {
+      const runs = scoped.filter((r) => r.runaway);
+      if (!runs.length) {
+        const li = document.createElement('li');
+        li.textContent = 'None in this selection.';
+        rl.append(li);
+      }
+      for (const r of runs) {
+        const li = document.createElement('li');
+        li.textContent = `${r.person} · ${shortDay(new Date(r.date + 'T00:00:00Z'))} · ${fmtH(r.hours)} on ${r.project} (${r.service_group}) — ${p.runaway ? 'included' : 'excluded'}`;
+        rl.append(li);
+      }
+    }
+    const z = $('.ud-zero');
+    if (stSP === 'ok') {
+      if (clientScoped) z.textContent = 'Clear the service group and service filters to see who logged no time at all.';
+      else {
+        const zero = peopleScope.filter((u) => !byPerson.has(u.person)).map((u) => `${u.person} (${u.team})`);
+        z.textContent = zero.length ? zero.join(', ') : 'Everyone in the selection logged time.';
+      }
+    } else z.textContent = stSP === 'loading' ? '—' : 'Failed to load';
+
+    }
+
+    if (firstDraw && okS) {
+      firstDraw = false;
+      const named = location.hash && document.getElementById(location.hash.slice(1));
+      if (named && !TABS.includes(named.id)) { named.scrollIntoView(); dash.setLink(named.id); }
+    }
+  }
+  dash.onData(draw);
+})();
+</script>
+
+<script>
+if (window.UDM_META.note) document.getElementById('ud-snapshot-note').textContent = window.UDM_META.note;
+</script>
+
+</template>
+<script src="runtime.js"></script>
+</body>
+</html>

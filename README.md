@@ -34,6 +34,27 @@ the defaults in `udm_report/source.py`, set `REWORK_PATH_*` the same way.
 Run it once by hand from the Actions tab (**Weekly report → Run workflow**). It prints the
 report in the log; untick *dry run* to post it.
 
+## Dashboard
+
+`site/` is the UDM time & delivery dashboard as a static site: `index.html` (page),
+`runtime.js` (loads the data), `vendor/` (d3) and `data/*.json`. It shows time and delivery,
+revisions and clock-in, with filters by month, week, client, service, team and person.
+
+`data/` holds the 1–9 Oct 2026 snapshot until the Rework secrets are set. After that the
+**Refresh dashboard data** action rewrites it every day at 07:00 Malaysia time (first day of
+last month to yesterday) and commits it, which redeploys the site.
+
+Deploy (no build step; both read their config from this repo):
+
+- **Vercel**: Add New → Project → import `udm-dashboard` → Deploy (`vercel.json` serves `site/`)
+- **Netlify**: Add new site → Import from Git → `udm-dashboard` → Deploy (`netlify.toml` publishes `site/`)
+
+The data names staff and their hours, so turn on password protection (Vercel: Settings →
+Deployment Protection; Netlify: Site configuration → Access control) or keep the link
+internal.
+
+Preview locally: `cd site && python3 -m http.server`, then open http://localhost:8000.
+
 ## Locally
 
 ```
