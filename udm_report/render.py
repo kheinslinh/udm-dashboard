@@ -7,6 +7,10 @@ from datetime import timedelta
 DISCORD_LIMIT = 2000
 
 
+def n(k, word):
+    return f"{k} {word}" + ("" if k == 1 else "s")
+
+
 def h(x):
     return f"{x:.1f}h"
 
@@ -56,12 +60,12 @@ def weekly(r, dashboard_url=None, top_clients=5):
     lines += [
         "",
         "**✅ Deliverables**",
-        f"- {dl['done_week']} tasks completed this week · {dl['done']} done of {dl['total']} total",
+        f"- {n(dl['done_week'], 'task')} completed this week · {dl['done']} done of {dl['total']} total",
         f"- 🔴 **{dl['overdue']} overdue**"
         + (" · most: " + ", ".join(f"{k} ({v})" for k, v in list(dl["overdue_by_client"].items())[:3]) if dl["overdue"] else ""),
         "",
         "**🔁 Revisions (this week)**",
-        f"- {rv['logs']} revision logs on {rv['tasks']} tasks · {h(rv['hours'])}"
+        f"- {n(rv['logs'], 'revision log')} on {n(rv['tasks'], 'task')} · {h(rv['hours'])}"
         + (f" ({rv['hours'] / t['hours']:.0%} of hours)" if t["hours"] else ""),
     ]
     if rv["top"]:
@@ -72,7 +76,7 @@ def weekly(r, dashboard_url=None, top_clients=5):
         "",
         "**🧹 Data hygiene**",
         f"- {hy['untitled']} of {hy['logs']} time logs have no title"
-        + (f" · {hy['runaway']} timers >12h left out ({h(hy['runaway_hours'])})" if hy["runaway"] else ""),
+        + (f" · {n(hy['runaway'], 'timer')} >12h left out ({h(hy['runaway_hours'])})" if hy["runaway"] else ""),
     ]
     if dashboard_url:
         lines.append(f"🔗 Full dashboard: {dashboard_url}")
