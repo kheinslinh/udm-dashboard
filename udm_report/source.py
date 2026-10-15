@@ -61,8 +61,13 @@ class ApiSource:
     }
 
     def __init__(self, base=None, token=None):
-        self.base = (base or os.environ["REWORK_API_BASE"]).rstrip("/")
-        self.token = token or os.environ["REWORK_API_TOKEN"]
+        base = base or os.environ.get("REWORK_API_BASE", "")
+        token = token or os.environ.get("REWORK_API_TOKEN", "")
+        missing = [n for n, v in (("REWORK_API_BASE", base), ("REWORK_API_TOKEN", token)) if not v]
+        if missing:
+            raise SystemExit(f"Missing {', '.join(missing)}: add it under the repository's Actions secrets.")
+        self.base = base.rstrip("/")
+        self.token = token
         self.paths = {
             k: os.environ.get(f"REWORK_PATH_{k.upper()}", v) for k, v in self.DEFAULT_PATHS.items()
         }
