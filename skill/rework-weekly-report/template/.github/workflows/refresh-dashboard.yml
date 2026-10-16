@@ -1,0 +1,30 @@
+name: Refresh dashboard data
+
+on:
+  schedule:
+    - cron: "0 23 * * *" # 07:00 local time (set for UTC+8: shift the hour for other timezones) every day
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  refresh:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Export from Rework
+        env:
+          REWORK_API_BASE: ${{ secrets.REWORK_API_BASE }}
+          REWORK_API_TOKEN: ${{ secrets.REWORK_API_TOKEN }}
+        run: python -m rework_report.export --out site/data
+      - name: Commit if changed
+        run: |
+          git add site/data
+          if git diff --cached --quiet; then echo "No change"; exit 0; fi
+          git -c user.name="rework-report bot" -c user.email="actions@github.com" commit -m "Refresh dashboard data"
+          git push

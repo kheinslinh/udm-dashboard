@@ -1,0 +1,10 @@
+{
+  "_note": "Fill per client. users: Rework user id -> display name and team (Rework has no departments yet).",
+  "report_name": "ACME",
+  "utc_offset_hours": 8,
+  "users": {
+    "1001": {"name": "Jane", "team": "Creative"},
+    "1002": {"name": "Ali", "team": "Client Servicing"}
+  },
+  "internal_groups": ["Admin", "Internal"]
+}
