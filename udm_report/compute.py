@@ -53,6 +53,8 @@ class Task:
     status: int
     deadline: int
     finished_at: int
+    project_id: str = ""
+    project: str = ""
 
 
 def load(source):
@@ -80,11 +82,14 @@ def load(source):
                     project=projects.get(item.get("project_id"), ""),
                     project_id=item.get("project_id") or "", item_id=item.get("item_id") or "",
                 ))
-        for it in source.work_items(svc["id"]).get("items", []):
+        work = source.work_items(svc["id"])
+        project_names = {p["id"]: p.get("name", "") for p in work.get("projects", [])}
+        for it in work.get("items", []):
             tasks.append(Task(
                 id=it["id"], name=it.get("name", ""), client=client, service=svc["name"],
                 status=it.get("status", 0), deadline=it.get("deadline") or 0,
                 finished_at=it.get("finished_at") or 0,
+                project_id=it.get("project_id") or "", project=project_names.get(it.get("project_id"), ""),
             ))
     return sessions, tasks, sorted(set(groups.values()))
 
@@ -158,6 +163,7 @@ def build(sessions, tasks, users, internal_groups, run_day, now_ts):
         rev_tasks[(s.client, s.task)] += 1
 
     return {
+        "has_hours": bool(sessions),
         "week": week, "prev": prev, "mtd": mtd,
         "clients": {
             "mtd": mtd_client, "week": week_client, "scope": {c: dict(sorted(v.items(), key=lambda kv: -kv[1])) for c, v in mtd_scope.items()},

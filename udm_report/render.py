@@ -33,8 +33,17 @@ def weekly(r, dashboard_url=None, top_clients=5):
         f"📊 **UDM Weekly Report — Week {iso_week}** ({span(week)})",
         f"_Rework time logs · month-to-date = {span(mtd)}_",
         "",
-        "**💰 Client hours (month-to-date)**",
     ]
+    if not r.get("has_hours", True):
+        lines += [
+            "⏳ _Hours by client, team and person start once Rework exposes time logs through its API._",
+            "",
+            *_deliverables(dl),
+        ]
+        if dashboard_url:
+            lines.append(f"🔗 Full dashboard: {dashboard_url}")
+        return "\n".join(lines)
+    lines.append("**💰 Client hours (month-to-date)**")
     for i, (client, hrs) in enumerate(list(c["mtd"].items())[:top_clients], 1):
         lines.append(f"{i}. {client} — **{h(hrs)}** (+{h(c['week'].get(client, 0))} this week)")
         scopes = list(c["scope"].get(client, {}).items())[:3]
@@ -59,10 +68,7 @@ def weekly(r, dashboard_url=None, top_clients=5):
 
     lines += [
         "",
-        "**✅ Deliverables**",
-        f"- {n(dl['done_week'], 'task')} completed this week · {dl['done']} done of {dl['total']} total",
-        f"- 🔴 **{dl['overdue']} overdue**"
-        + (" · most: " + ", ".join(f"{k} ({v})" for k, v in list(dl["overdue_by_client"].items())[:3]) if dl["overdue"] else ""),
+        *_deliverables(dl),
         "",
         "**🔁 Revisions (this week)**",
         f"- {n(rv['logs'], 'revision log')} on {n(rv['tasks'], 'task')} · {h(rv['hours'])}"
@@ -94,6 +100,15 @@ def monthly(m, top_scopes=4):
         scopes = list(m["scope"].get(client, {}).items())[:top_scopes]
         lines.append(f"**{client}** — {h(hrs)}" + (": " + " · ".join(f"{s} {h(v)}" for s, v in scopes) if scopes else ""))
     return "\n".join(lines)
+
+
+def _deliverables(dl):
+    return [
+        "**✅ Deliverables**",
+        f"- {n(dl['done_week'], 'task')} completed this week · {dl['done']} done of {dl['total']} total",
+        f"- 🔴 **{dl['overdue']} overdue**"
+        + (" · most: " + ", ".join(f"{k} ({v})" for k, v in list(dl["overdue_by_client"].items())[:3]) if dl["overdue"] else ""),
+    ]
 
 
 def chunks(text, limit=DISCORD_LIMIT):

@@ -8,6 +8,7 @@ import argparse
 import functools
 import json
 import re
+import time
 from datetime import date, datetime, timedelta
 from pathlib import Path
 
@@ -56,23 +57,22 @@ def session_rows(sessions, users, start, end):
     return rows
 
 
-def project_rows(source, groups, today):
-    rows = []
-    for svc in source.services():
-        if svc.get("status") != 1:
+def project_rows(tasks, now_ts, today):
+    """Done / total / overdue per project, counted from its tasks (cancelled ones left out)."""
+    by = {}
+    for t in tasks:
+        if t.status == compute.CANCELLED or not t.project_id:
             continue
-        for p in source.resource_items(svc["id"]).get("projects", []):
-            stats = (p.get("data") or {}).get("stats") or {}
-            total = stats.get("total", 0)
-            if not total:
-                continue
-            rows.append({
-                "project_id": p["id"], "project": p.get("name", ""),
-                "service_group": groups.get(svc.get("group_id"), "(no client)"), "service": svc["name"],
-                "done": stats.get("done", 0), "total": total, "overdue": stats.get("overdue", 0),
-                "status": "Completed" if stats.get("done", 0) >= total else "Active", "updated": today.isoformat(),
-            })
-    return rows
+        r = by.setdefault(t.project_id, {
+            "project_id": t.project_id, "project": t.project, "service_group": t.client, "service": t.service,
+            "done": 0, "total": 0, "overdue": 0})
+        r["total"] += 1
+        if t.status == compute.DONE:
+            r["done"] += 1
+        elif 0 < t.deadline < now_ts:
+            r["overdue"] += 1
+    return [{**r, "status": "Completed" if r["done"] >= r["total"] else "Active", "updated": today.isoformat()}
+            for r in by.values()]
 
 
 class Cached:
@@ -96,9 +96,8 @@ def main(argv=None):
     today = date.fromisoformat(args.date) if args.date else datetime.now(compute.MYT).date()
     end = today  # exclusive: data runs to yesterday
     start = (today.replace(day=1) - timedelta(1)).replace(day=1)
-    source = Cached(DirSource(args.from_dir) if args.from_dir else ApiSource())
-    sessions, _, _ = compute.load(source)
-    groups = {g["id"]: g["name"] for g in source.groups()}
+    source = Cached(DirSource(args.from_dir) if args.from_dir else ApiSource(config=CONFIG))
+    sessions, tasks, _ = compute.load(source)
     users = CONFIG["users"]
     last = end - timedelta(1)
 
@@ -106,7 +105,7 @@ def main(argv=None):
     out.mkdir(parents=True, exist_ok=True)
     files = {
         "sessions": session_rows(sessions, users, start, end),
-        "projects": project_rows(source, groups, today),
+        "projects": project_rows(tasks, time.time(), today),
         "people": [{"person": u["name"], "team": u["team"], "title": u.get("title", u["team"])} for u in users.values()],
         "meta": {
             "window_start": start.isoformat(), "window_end": last.isoformat(), "last_day_share": 1,
@@ -115,9 +114,13 @@ def main(argv=None):
                      "Timers left running over 12h are left out unless ticked below."),
         },
     }
+    if not sessions:
+        # No time-log endpoint yet: keep the last hours snapshot instead of blanking the dashboard.
+        for name in ("sessions", "meta"):
+            files.pop(name)
     for name, data in files.items():
         (out / f"{name}.json").write_text(json.dumps(data, ensure_ascii=False, indent=0 if name == "meta" else None))
-    print(f"wrote {len(files['sessions'])} sessions, {len(files['projects'])} projects to {out}")
+    print(f"wrote {len(files.get('sessions', []))} sessions, {len(files['projects'])} projects to {out}")
 
 
 if __name__ == "__main__":

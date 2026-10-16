@@ -26,14 +26,14 @@ def main(argv=None):
     args = p.parse_args(argv)
 
     run_day = date.fromisoformat(args.date) if args.date else datetime.now(compute.MYT).date()
-    source = DirSource(args.from_dir) if args.from_dir else ApiSource()
+    source = DirSource(args.from_dir) if args.from_dir else ApiSource(config=CONFIG)
     sessions, tasks, _ = compute.load(source)
     users, internal = CONFIG["users"], set(CONFIG["internal_groups"])
 
     messages = [render.weekly(compute.build(sessions, tasks, users, internal, run_day, time.time()),
                               os.environ.get("DASHBOARD_URL"))]
     month = compute.previous_month(run_day)
-    if month:
+    if month and sessions:
         messages.append(render.monthly(compute.build_month(sessions, internal, month)))
 
     if args.dry_run:

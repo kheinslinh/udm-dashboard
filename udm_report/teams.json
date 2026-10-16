@@ -1,36 +1,174 @@
 {
-  "_note": "Rework user id -> name and team. Rework has no departments yet, so teams are kept here. Update when staff change.",
+  "_note": "Rework user id -> name and team. Rework has no departments yet, so teams are kept here. Update when staff change. group_names: service group id -> client name (the public API returns ids only). api_user_id: acting user for API reads.",
   "users": {
-    "6781": {"name": "Evien", "team": "Business Development"},
-    "6535": {"name": "Syafiqah", "team": "Content & Social"},
-    "6534": {"name": "Amirul", "team": "Client Servicing"},
-    "6533": {"name": "Erma", "team": "Client Servicing"},
-    "6413": {"name": "Zhao Hong", "team": "Web"},
-    "6412": {"name": "Nurin", "team": "Content & Social"},
-    "6411": {"name": "Ammar", "team": "Content & Social"},
-    "6416": {"name": "Hapizah", "team": "Admin"},
-    "6410": {"name": "Fateha", "team": "Content & Social"},
-    "6409": {"name": "Jennifer", "team": "Content & Social"},
-    "6415": {"name": "John", "team": "Performance"},
-    "6414": {"name": "Ervin", "team": "Performance"},
-    "6406": {"name": "Hellena", "team": "Creative"},
-    "6402": {"name": "Shukri", "team": "Creative"},
-    "6404": {"name": "Esther", "team": "Creative"},
-    "6405": {"name": "Suraiya", "team": "Creative"},
-    "6408": {"name": "Michelle Peter", "team": "Content & Social"},
-    "6407": {"name": "Aisyah", "team": "Creative"},
-    "6403": {"name": "Zaidi", "team": "Creative"},
-    "6399": {"name": "Azri", "team": "Creative"},
-    "6400": {"name": "Ryan", "team": "Creative"},
-    "6401": {"name": "Max", "team": "Creative"},
-    "6398": {"name": "Joanne", "team": "Creative"},
-    "6397": {"name": "Belle", "team": "Client Servicing"},
-    "6395": {"name": "Michelle Lee", "team": "Client Servicing"},
-    "6394": {"name": "Lydia", "team": "Client Servicing"},
-    "6392": {"name": "Marziana", "team": "Client Servicing"},
-    "6393": {"name": "Danial", "team": "Client Servicing"},
-    "6391": {"name": "Matthew", "team": "Management"},
-    "6144": {"name": "Fiona", "team": "Management"}
+    "6781": {
+      "name": "Evien",
+      "team": "Business Development"
+    },
+    "6535": {
+      "name": "Syafiqah",
+      "team": "Content & Social"
+    },
+    "6534": {
+      "name": "Amirul",
+      "team": "Client Servicing"
+    },
+    "6533": {
+      "name": "Erma",
+      "team": "Client Servicing"
+    },
+    "6413": {
+      "name": "Zhao Hong",
+      "team": "Web"
+    },
+    "6412": {
+      "name": "Nurin",
+      "team": "Content & Social"
+    },
+    "6411": {
+      "name": "Ammar",
+      "team": "Content & Social"
+    },
+    "6416": {
+      "name": "Hapizah",
+      "team": "Admin"
+    },
+    "6410": {
+      "name": "Fateha",
+      "team": "Content & Social"
+    },
+    "6409": {
+      "name": "Jennifer",
+      "team": "Content & Social"
+    },
+    "6415": {
+      "name": "John",
+      "team": "Performance"
+    },
+    "6414": {
+      "name": "Ervin",
+      "team": "Performance"
+    },
+    "6406": {
+      "name": "Hellena",
+      "team": "Creative"
+    },
+    "6402": {
+      "name": "Shukri",
+      "team": "Creative"
+    },
+    "6404": {
+      "name": "Esther",
+      "team": "Creative"
+    },
+    "6405": {
+      "name": "Suraiya",
+      "team": "Creative"
+    },
+    "6408": {
+      "name": "Michelle Peter",
+      "team": "Content & Social"
+    },
+    "6407": {
+      "name": "Aisyah",
+      "team": "Creative"
+    },
+    "6403": {
+      "name": "Zaidi",
+      "team": "Creative"
+    },
+    "6399": {
+      "name": "Azri",
+      "team": "Creative"
+    },
+    "6400": {
+      "name": "Ryan",
+      "team": "Creative"
+    },
+    "6401": {
+      "name": "Max",
+      "team": "Creative"
+    },
+    "6398": {
+      "name": "Joanne",
+      "team": "Creative"
+    },
+    "6397": {
+      "name": "Belle",
+      "team": "Client Servicing"
+    },
+    "6395": {
+      "name": "Michelle Lee",
+      "team": "Client Servicing"
+    },
+    "6394": {
+      "name": "Lydia",
+      "team": "Client Servicing"
+    },
+    "6392": {
+      "name": "Marziana",
+      "team": "Client Servicing"
+    },
+    "6393": {
+      "name": "Danial",
+      "team": "Client Servicing"
+    },
+    "6391": {
+      "name": "Matthew",
+      "team": "Management"
+    },
+    "6144": {
+      "name": "Fiona",
+      "team": "Management"
+    }
   },
-  "internal_groups": ["Unravel", "Admin", "CLOCK IN"]
+  "internal_groups": [
+    "Unravel",
+    "Admin",
+    "CLOCK IN"
+  ],
+  "api_user_id": 6144,
+  "group_names": {
+    "aF748QDw-tbAqc6Tmir-djJTnbG0NG2": "360 MKTG SG",
+    "aF5q5e1m-0Vf2Iw5HB5-XkE2jfkeJ6z": "7Eleven",
+    "aF6POcVS-S4nh6NpFmy-ZqqBqYrXt2U": "Admin",
+    "aF5UK5sU-aYqIB67VTh-Y7PDAeJUxSk": "ALLEYCAT",
+    "aF5rsKfK-aEPBUHTlCK-vEXvGopUEHH": "ALLIANCE BANK",
+    "aF67Ok6m-UIKPzQIIbi-AWeaD1msjiW": "BEIERSDORF",
+    "aF67Ou2b-Pt0UBMCLvr-bSXQCdfsjaS": "BUNDABERG",
+    "aF67Plc1-wJqQ4BemHD-rwppeWb9lPs": "CALTEXT",
+    "aF5rzY26-evM9Xbcpee-oV89w7Se4iL": "CIDOLS",
+    "aF7XNYEw-N9iHsasPGw-HVeGZP9W0Y6": "CLOCK IN",
+    "aF8yedRF-2kVE5FH0kG-a6YhUd8uzHL": "COMMUNITY MGMT",
+    "aF5rfEgM-ry66dRO4PY-9HXfwHY8VcW": "ELANCO",
+    "aF9pBami-44mXZYbL4q-oHl1TbzPUo4": "FLO PLUS",
+    "aF69Acom-RjrMyTJpub-fcGycIUpgyY": "GCH-COLD STORAGE",
+    "aF69AJRL-4X1Gi5qpBV-RQFYMMAVMHu": "GCH-GIANT",
+    "aF69AkAO-wopzfezc9H-PZnr84u3ae6": "GCH-MERCATO",
+    "aF69AmfA-S0WLkFyM8C-0s0dCERa6bE": "GCH-TMC",
+    "aF69ApUh-VUyrXrMyIW-uOkyNRQ7JFE": "GCH-UNCLE JACK",
+    "aF5rhBLA-dHUt7yXT3w-UVCEV0mXnQ0": "GLENMARK",
+    "aF6Dt51g-MdNtliDX4f-PUkDfzqkBpo": "IMAGO JAYA",
+    "aF5rzlX1-RZ4KwRF3nS-PpF2FfNBOOc": "INGRAM MICRO",
+    "aF7jAXO9-cwwP9P3b6a-BrQOgbLrwci": "KHEE SAN",
+    "aF67PN5F-9fqaYWhWZ2-kTbxSy2mmlG": "LAY'S SINGAPORE",
+    "aF5aDKCy-jiTqLJdT6j-4lLiBQ8hD5Z": "LICIN-LICIN",
+    "aF5mAPch-BykwGBW8RT-133E2wPT5h9": "LUDIC ASIA",
+    "aF5s2RcH-POTc1NwGgq-3ivIuVtsVMj": "MARCO WORLDWIDE",
+    "aF67RBaY-UmX1VQGNPz-9VxTVOdIqgP": "MARIGOLD",
+    "aF5s4H9j-7hLG23hShz-aI02dpNai1e": "OLIVE GARDEN",
+    "aF5s5k9P-zTYyEu6Xhi-K9ZHJW50h7A": "PANASONIC",
+    "aF5rm1Iw-00Q2CN0WUP-qRhPnECWb5p": "PC- FRAGRANCE",
+    "aF6b9ZAb-SImeST9whT-nxSzourAEql": "PC- PRO THIN",
+    "aF6b9mEO-h6UeqbJ6bz-Ja7jRlv9gmx": "PC- SKINFIT",
+    "aF67Syir-dzLgMMQ72u-W6E34fpCjpt": "PETWORLD",
+    "aF5YkPcI-MWWSGifo4t-0pWZwOxzYJQ": "POS MALAYSIA",
+    "aF67RUE1-UYhEmFhfus-s3L5TDUkKrF": "RSKU",
+    "aF5rjQSU-dScYrzwgVR-DL82R7R8v1x": "SUPERB ALUMINIUM",
+    "aF5aDTvp-3klhhdTE5y-3HPAuivEzw1": "Unravel",
+    "aF67RerK-MaFUWyOadA-D1HgejIGEFf": "UOB BANK",
+    "aF75q8hr-jIYRTArd5u-ZQvKlq7ldze": "VMP",
+    "aF67RntH-44KitCzO2S-zC9zqXoDD0I": "WALKERSCOTT",
+    "aF5s5p2J-ho56DOmko8-NlE8MV5kaUI": "XINHE"
+  }
 }
