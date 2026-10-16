@@ -21,6 +21,10 @@ jobs:
         env:
           REWORK_API_BASE: ${{ secrets.REWORK_API_BASE }}
           REWORK_API_TOKEN: ${{ secrets.REWORK_API_TOKEN }}
+          REWORK_PATH_SERVICES: ${{ secrets.REWORK_PATH_SERVICES }}
+          REWORK_PATH_GROUPS: ${{ secrets.REWORK_PATH_GROUPS }}
+          REWORK_PATH_RESOURCE_ITEMS: ${{ secrets.REWORK_PATH_RESOURCE_ITEMS }}
+          REWORK_PATH_WORK_ITEMS: ${{ secrets.REWORK_PATH_WORK_ITEMS }}
         run: python -m udm_report.export --out site/data
       - name: Commit if changed
         run: |

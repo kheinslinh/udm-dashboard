@@ -70,7 +70,7 @@ class ApiSource:
         self.base = base.rstrip("/")
         self.token = token
         self.paths = {
-            k: os.environ.get(f"REWORK_PATH_{k.upper()}", v) for k, v in self.DEFAULT_PATHS.items()
+            k: os.environ.get(f"REWORK_PATH_{k.upper()}") or v for k, v in self.DEFAULT_PATHS.items()
         }
 
     def _get(self, key, **params):
