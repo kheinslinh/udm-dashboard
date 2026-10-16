@@ -13,6 +13,7 @@ Two sources return the same JSON shapes:
 
 import json
 import os
+import urllib.error
 import urllib.request
 from pathlib import Path
 
@@ -77,8 +78,12 @@ class ApiSource:
         req = urllib.request.Request(
             url, headers={"Authorization": f"Bearer {self.token}", "Accept": "application/json"}
         )
-        with urllib.request.urlopen(req, timeout=60) as resp:
-            return json.load(resp)
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                return json.load(resp)
+        except urllib.error.HTTPError as e:
+            body = e.read()[:500].decode("utf-8", "replace")
+            raise SystemExit(f"Rework API {e.code} on {key} ({self.paths[key].format(**params)}): {body}")
 
     def services(self):
         return self._get("services").get("services", [])
