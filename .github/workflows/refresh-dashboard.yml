@@ -1,8 +1,6 @@
 name: Refresh dashboard data
 
 on:
-  schedule:
-    - cron: "0 23 * * *" # 07:00 Malaysia time (UTC+8) every day
   workflow_dispatch:
 
 permissions:

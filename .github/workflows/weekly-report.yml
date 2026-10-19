@@ -1,8 +1,6 @@
 name: Weekly report
 
 on:
-  schedule:
-    - cron: "0 1 * * 5" # Friday 09:00 Malaysia time (UTC+8); GitHub may start it a few minutes late
   workflow_dispatch:
     inputs:
       dry_run:
