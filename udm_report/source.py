@@ -113,9 +113,33 @@ class ApiSource:
     def ping(self):
         """Check the key and acting user: /v1/ping, then the services the user can see."""
         self._post("/v1/ping")
-        names = [s.get("name", s.get("id")) for s in self._pages("/v1/service/all", "services")]
-        return (f"Rework API OK at {self.base}: {len(names)} services visible "
-                f"({', '.join(names[:5])}{'…' if len(names) > 5 else ''})")
+        services = list(self._pages("/v1/service/all", "services"))
+        names = [s.get("name", s.get("id")) for s in services]
+        lines = [f"Rework API OK at {self.base}: {len(names)} services visible "
+                 f"({', '.join(names[:5])}{'…' if len(names) > 5 else ''})"]
+        lines += self._field_sample(services)
+        return "\n".join(lines)
+
+    def _field_sample(self, services):
+        """Field names (and value types) of one service, project and task, to plan dashboard widgets."""
+        def shape(obj, depth=0):
+            if isinstance(obj, dict) and depth < 2:
+                return {k: shape(v, depth + 1) for k, v in obj.items()}
+            if isinstance(obj, list):
+                return [shape(obj[0], depth + 1)] if obj else []
+            return type(obj).__name__ if not isinstance(obj, (int, float, bool)) or isinstance(obj, bool) else obj.__class__.__name__
+        out = []
+        svc = next((s for s in services if s.get("model", "project.project") == "project.project" and s.get("status") == 1), None)
+        if not svc:
+            return out
+        out.append("service fields: " + json.dumps(shape(svc)))
+        for p in self._pages("/v1/project/list", "projects", service_id=svc["id"]):
+            out.append("project fields: " + json.dumps(shape(p)))
+            for t in self._pages("/v1/task/list", "tasks", project_id=p["id"], include_archived=0):
+                out.append("task fields: " + json.dumps(shape(t)))
+                break
+            break
+        return out
 
     def _pages(self, path, key, **body):
         page = 0
