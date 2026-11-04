@@ -41,6 +41,12 @@ class DirSource:
     def work_items(self, service_id):
         return self._load("work_items", f"{service_id}.json")
 
+    def stages(self, service_id):
+        return self._load("stages", f"{service_id}.json").get("stages", [])
+
+    def item_types(self, service_id):
+        return self._load("item_types", f"{service_id}.json").get("itemtypes", [])
+
 
 class ApiSource:
     """Rework Projects Public API (v1): every call is a POST with a JSON body, the token goes in
@@ -153,6 +159,24 @@ class ApiSource:
     def services(self):
         return [s for s in self._pages("/v1/service/all", "services") if s.get("model", "project.project") == "project.project"]
 
+    def _optional(self, path, key, **body):
+        """A lookup the dashboard can live without: an error gives an empty list, not a failed sync."""
+        try:
+            out = self._post(path, **body)
+        except SystemExit as e:
+            print(f"skipped {path}: {e}")
+            return []
+        found = out.get(key)
+        if found is None:  # response key not documented: take the first list in the reply
+            found = next((v for v in out.values() if isinstance(v, list)), [])
+        return found
+
+    def stages(self, service_id):
+        return self._optional("/v1/service/get.stages", "stages", service_id=service_id)
+
+    def item_types(self, service_id):
+        return self._optional("/v1/service/get.itemtypes", "itemtypes", service_id=service_id)
+
     def groups(self):
         return [{"id": k, "name": v} for k, v in self.config.get("group_names", {}).items()]
 
@@ -164,6 +188,12 @@ class ApiSource:
     def work_items(self, service_id):
         projects, items = [], []
         for p in self._pages("/v1/project/list", "projects", service_id=service_id):
-            projects.append({"id": p["id"], "name": p.get("name", "")})
+            fin = p.get("financials") or {}
+            # Money fields are left behind on purpose: the dashboard shows hours only.
+            projects.append({"id": p["id"], "name": p.get("name", ""), "status": p.get("status"),
+                             "priority": p.get("priority"), "owners": p.get("owners") or [],
+                             "start_date": p.get("start_date") or 0, "deadline": p.get("deadline") or 0,
+                             "created_at": p.get("created_at") or 0, "url": p.get("url", ""),
+                             "effort": fin.get("effort") or 0, "effort_recorded": fin.get("effort_recorded") or 0})
             items += self._pages("/v1/task/list", "tasks", project_id=p["id"], include_archived=0)
         return {"projects": projects, "items": items}

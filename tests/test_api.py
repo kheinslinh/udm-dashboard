@@ -44,7 +44,8 @@ class ApiSourceTest(unittest.TestCase):
         with mock.patch.object(source.urllib.request, "urlopen", fake_urlopen):
             work = api.work_items("s1")
         self.assertEqual([t["id"] for t in work["items"]], ["t1", "t2"])
-        self.assertEqual(work["projects"], [{"id": "p1", "name": "Oct"}])
+        self.assertEqual([(p["id"], p["name"]) for p in work["projects"]], [("p1", "Oct")])
+        self.assertNotIn("income", work["projects"][0])
         method, path, headers, body = calls[0]
         self.assertEqual((method, path), ("POST", "/v1/project/list"))
         self.assertEqual(headers["X-api-token"], "tok")
