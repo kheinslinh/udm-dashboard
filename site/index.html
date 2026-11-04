@@ -3,128 +3,138 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>UDM Time & Delivery</title>
+<title>UnRavel Project Delivery</title>
 <link rel="stylesheet" href="style.css">
 <link rel="icon" type="image/png" href="assets/favicon.png">
 <link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <script src="vendor/d3.v7.9.0.min.js"></script>
 </head>
 <body>
-<header class="top">
-  <div class="top-row">
-    <div class="brand"><img src="assets/unravel-wordmark.png" alt="UnRavel" class="logo"><span class="sep"></span><h1>Time &amp; delivery</h1></div>
-    <div class="top-meta"><span id="snapshot-note">Loading…</span> · <span id="sync-note"></span> <button id="sync" class="sync" type="button" title="Pull the latest data from Rework">Sync</button> · <a href="/api/auth/logout">Sign out</a></div>
-  </div>
-  <nav class="tabs" role="tablist">
-    <button data-tab="dashboard" class="on">Dashboard</button>
-    <button data-tab="team">Team report</button>
-    <button data-tab="delivery">Delivery</button>
-    <button data-tab="management">Management</button>
-    <button data-tab="quality">Data quality</button>
-  </nav>
-  <div class="band">
-  <section class="filters" aria-label="Filters">
-    <label>From <input type="date" id="f-from"></label>
-    <label>To <input type="date" id="f-to"></label>
-    <label>Client <select id="f-client"></select></label>
-    <label>Service <select id="f-service"></select></label>
-    <label>Team <select id="f-team"></select></label>
-    <label>Person <select id="f-person"></select></label>
-    <label class="check"><input type="checkbox" id="f-runaway"> Include timers &gt;12h</label>
-    <button id="f-reset" class="ghost">Reset</button>
-  </section>
-  </div>
-</header>
+<div class="shell">
+  <aside class="side">
+    <div class="side-brand"><img src="assets/unravel-wordmark.png" alt="UnRavel" class="logo"><span>Project Management</span></div>
+    <nav class="nav" role="tablist">
+      <button data-tab="dashboard" class="on"><svg viewBox="0 0 24 24"><path d="M3 11l9-7 9 7v9a1 1 0 0 1-1 1h-5v-6H9v6H4a1 1 0 0 1-1-1z"/></svg>Executive Overview</button>
+      <button data-tab="delivery"><svg viewBox="0 0 24 24"><path d="M4 6h16M4 12h10M4 18h6"/></svg>Delivery</button>
+      <button data-tab="team"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0M16 4.5a3.5 3.5 0 0 1 0 7M18 14a6.5 6.5 0 0 1 3.5 6"/></svg>Team &amp; Capacity</button>
+      <button data-tab="management"><svg viewBox="0 0 24 24"><path d="M4 20V10M10 20V4M16 20v-7M22 20H2"/></svg>Management</button>
+      <button data-tab="quality"><svg viewBox="0 0 24 24"><path d="M12 3l8 3v6c0 4.5-3.4 8.3-8 9-4.6-.7-8-4.5-8-9V6z"/><path d="M8.5 12l2.5 2.5 4.5-5"/></svg>Data quality</button>
+    </nav>
+    <div class="side-foot">
+      <div id="sync-note" class="sync-note"></div>
+      <button id="sync" class="sync" type="button" title="Pull the latest data from Rework">Sync</button>
+      <a href="/api/auth/logout" class="signout">Sign out</a>
+    </div>
+  </aside>
 
-<main>
-  <!-- DASHBOARD -->
-  <section id="tab-dashboard" class="tab">
-    <div class="tiles" id="dash-tiles"></div>
-    <div class="grid two">
-      <article class="card">
-        <div class="card-head"><h2>Working hours over time</h2>
-          <div class="seg" id="grain"><button data-g="day" class="on">Day</button><button data-g="week">Week</button><button data-g="month">Month</button></div>
+  <div class="main">
+    <header class="page-head">
+      <div>
+        <div class="eyebrow" id="eyebrow">Executive dashboard</div>
+        <h1 id="page-title">Project Delivery Overview</h1>
+        <p class="sub" id="page-sub">Performance, delivery and project health across UnRavel.</p>
+      </div>
+      <div class="head-controls">
+        <label class="ctl"><span>From</span><input type="date" id="f-from"></label>
+        <label class="ctl"><span>To</span><input type="date" id="f-to"></label>
+        <label class="ctl"><span>Client</span><select id="f-client"></select></label>
+        <button id="more-toggle" class="btn-ghost" type="button" aria-expanded="false">More filters</button>
+        <button id="export" class="btn" type="button" title="Download the tasks in this selection as CSV">Export</button>
+      </div>
+    </header>
+    <section class="more" id="more" hidden aria-label="More filters">
+      <label class="ctl"><span>Service</span><select id="f-service"></select></label>
+      <label class="ctl"><span>Team</span><select id="f-team"></select></label>
+      <label class="ctl"><span>Person</span><select id="f-person"></select></label>
+      <label class="check"><input type="checkbox" id="f-runaway"> Include timers &gt;12h</label>
+      <button id="f-reset" class="btn-orange" type="button">Reset</button>
+    </section>
+
+    <main>
+      <!-- EXECUTIVE OVERVIEW -->
+      <section id="tab-dashboard" class="tab">
+        <div class="kpis" id="dash-kpis"></div>
+        <div class="grid g3">
+          <article class="card"><div class="card-head"><h2>Project health</h2><span class="info" tabindex="0" title="On hold: project not active in Rework. Delayed: deadline passed, or 3+ overdue tasks, or a quarter of its tasks overdue. At risk: any overdue task, or due within 7 days with under 70% done. Otherwise on track.">i</span></div><div id="health-donut" class="chart"></div></article>
+          <article class="card"><div class="card-head"><h2>Delivery trend</h2><span class="legend-inline"><i class="sw brand"></i>On-time <i class="sw dash"></i>Target 90%</span></div><p class="muted">Tasks finished on or before their deadline, by week finished.</p><div id="trend" class="chart"></div></article>
+          <article class="card"><div class="card-head"><h2>Overdue tasks</h2><button class="link" type="button" data-goto="delivery">View all →</button></div><div class="big-num" id="overdue-num"></div><ul class="list" id="overdue-list"></ul></article>
         </div>
-        <div id="chart-time" class="chart"></div>
-      </article>
-      <article class="card">
-        <h2>Pending tasks</h2>
-        <p class="muted">Open tasks per person, due this week / next week and overdue.</p>
-        <div class="pending-note">Waiting for task data from Rework (assignee, deadline, status per task). This panel fills in once the task API is available.</div>
-      </article>
-    </div>
-    <div class="grid two">
-      <article class="card"><h2>Hours by project</h2><div id="bars-project"></div></article>
-      <article class="card"><h2>Hours by person</h2><p class="muted">Pick a person in the filter to see their own tasks below.</p><div id="bars-person"></div></article>
-    </div>
-    <article class="card" id="person-card" hidden>
-      <h2 id="person-title">Tasks worked on</h2>
-      <table class="tbl" id="person-tasks"><thead><tr><th>Task</th><th>Client</th><th>Project</th><th class="num">Hours</th><th>Last logged</th></tr></thead><tbody></tbody></table>
-    </article>
-  </section>
+        <div class="grid g2w">
+          <article class="card"><div class="card-head"><h2>Attention needed <span class="count" id="attn-count"></span></h2></div>
+            <div class="scroll tall"><table class="tbl" id="attn-table"><thead><tr><th>Project</th><th>Client</th><th>Status</th><th>Due date</th><th>Issue</th></tr></thead><tbody></tbody></table></div></article>
+          <article class="card"><div class="card-head"><h2>Hours by service</h2><span class="badge demo" data-demo hidden>Demo hours</span></div><div id="bars-service"></div></article>
+        </div>
+      </section>
 
-  <!-- TEAM REPORT -->
-  <section id="tab-team" class="tab" hidden>
-    <article class="card">
-      <h2>Workload by team</h2>
-      <p class="muted">Workload = hours logged on tasks. Shares and colours compare each person with their own team only (the heaviest in a team is darkest). Task count = tasks the person logged time on, until assigned-task data is available.</p>
-      <div id="team-tables"></div>
-    </article>
-  </section>
+      <!-- DELIVERY -->
+      <section id="tab-delivery" class="tab" hidden>
+        <div class="kpis" id="deliv-kpis"></div>
+        <div class="grid g2w">
+          <article class="card"><div class="card-head"><h2>Project timeline <span class="count">next 4 weeks</span></h2><span class="legend-inline" id="gantt-legend"></span></div><div id="gantt" class="chart"></div></article>
+          <article class="card"><h2>Task status</h2><div id="donut" class="chart"></div></article>
+        </div>
+        <div class="grid g3">
+          <article class="card"><h2>On-time delivery trend</h2><p class="muted">Dashed line: 90% target.</p><div id="trend2" class="chart"></div></article>
+          <article class="card"><div class="card-head"><h2>Due soon <span class="count">next 7 days</span></h2></div><ul class="list" id="due-list"></ul></article>
+          <article class="card"><h2>Risk signals</h2><p class="muted">Rework has no risk category yet; these are read from the tasks.</p><ul class="list risk" id="risk-list"></ul></article>
+        </div>
+        <div class="grid g2">
+          <article class="card"><h2>Overdue tasks</h2><div class="scroll tall"><table class="tbl" id="overdue-table"><thead><tr><th>Task</th><th>Client</th><th>Assignee</th><th>Deadline</th><th class="num">Late</th></tr></thead><tbody></tbody></table></div></article>
+          <article class="card"><h2>Delivery by client</h2><div class="scroll tall"><table class="tbl" id="deliv-table"><thead><tr><th>Client</th><th class="num">Done</th><th class="num">Total</th><th class="num">% done</th><th class="num">Overdue</th><th class="num">On time</th></tr></thead><tbody></tbody></table></div></article>
+        </div>
+      </section>
 
-  <!-- DELIVERY -->
-  <section id="tab-delivery" class="tab" hidden>
-    <div class="tiles" id="deliv-tiles"></div>
-    <div class="grid two">
-      <article class="card"><h2>Task status</h2><div id="donut" class="chart"></div></article>
-      <article class="card"><h2>Overdue tasks by client</h2><div id="bars-overdue"></div></article>
-    </div>
-    <article class="card">
-      <h2>Delivery by client</h2>
-      <p class="muted">Task counts are the snapshot on <span id="proj-updated">—</span>; hours follow the date filter.</p>
-      <table class="tbl" id="deliv-table"><thead><tr><th>Client</th><th class="num">Done</th><th class="num">Total</th><th class="num">% done</th><th class="num">Overdue</th><th class="num">Hours</th></tr></thead><tbody></tbody></table>
-    </article>
-  </section>
+      <!-- TEAM & CAPACITY -->
+      <section id="tab-team" class="tab" hidden>
+        <div class="kpis" id="team-kpis"></div>
+        <div class="grid g2">
+          <article class="card"><div class="card-head"><h2>Utilisation by team</h2><span class="badge demo" data-demo hidden>Demo hours</span></div><p class="muted">Hours logged ÷ (people × working days × 8h).</p><div id="bars-util"></div></article>
+          <article class="card"><div class="card-head"><h2>Logged vs estimated hours</h2><span class="legend-inline"><i class="sw brand"></i>Logged <i class="sw soft"></i>Estimated</span></div><p class="muted">Project totals to date by service, from Rework project effort.</p><div id="est-chart" class="chart"></div></article>
+        </div>
+        <div class="grid g2">
+          <article class="card"><h2>Workload per person</h2><p class="muted">Open tasks assigned in Rework. Click a name to filter.</p><span class="legend-inline"><i class="sw bad"></i>Overdue <i class="sw warn"></i>Due in 7 days <i class="sw brand"></i>Later</span><div id="workload" class="scroll tall"></div></article>
+          <article class="card"><div class="card-head"><h2>Working hours over time</h2><span class="badge demo" data-demo hidden>Demo hours</span>
+            <div class="seg" id="grain"><button data-g="day" class="on">Day</button><button data-g="week">Week</button><button data-g="month">Month</button></div></div>
+            <div id="chart-time" class="chart"></div></article>
+        </div>
+        <article class="card"><div class="card-head"><h2>Workload by team</h2><span class="badge demo" data-demo hidden>Demo hours</span></div>
+          <p class="muted">Shares and colours compare each person with their own team only (the heaviest in a team is darkest). Open tasks come from Rework assignments.</p>
+          <div id="team-tables"></div></article>
+        <div class="grid g2">
+          <article class="card"><div class="card-head"><h2>Hours by project</h2><span class="badge demo" data-demo hidden>Demo hours</span></div><div id="bars-project"></div></article>
+          <article class="card" id="person-card" hidden><h2 id="person-title">Tasks</h2>
+            <div class="scroll tall"><table class="tbl" id="person-tasks"><thead><tr><th>Task</th><th>Client</th><th>State</th><th>Deadline</th></tr></thead><tbody></tbody></table></div></article>
+        </div>
+      </section>
 
-  <!-- MANAGEMENT -->
-  <section id="tab-management" class="tab" hidden>
-    <div class="tiles" id="mgmt-tiles"></div>
-    <article class="card">
-      <h2>Client hours by scope</h2>
-      <p class="muted">Hours logged per client and service in the selected range, for retainer checks.</p>
-      <table class="tbl" id="scope-table"><thead><tr><th>Client</th><th>Service</th><th class="num">Hours</th><th class="num">Tasks</th><th class="num">People</th></tr></thead><tbody></tbody></table>
-    </article>
-    <div class="grid two">
-      <article class="card"><h2>Revisions</h2><p class="muted">Logs whose title or task says revision, amendment, re-edit or changes.</p><div id="rev-list"></div></article>
-      <article class="card"><h2>Internal &amp; clock-in time</h2><div id="internal-list"></div></article>
-    </div>
-  </section>
+      <!-- MANAGEMENT -->
+      <section id="tab-management" class="tab" hidden>
+        <div class="kpis" id="mgmt-kpis"></div>
+        <article class="card"><div class="card-head"><h2>Client hours by scope</h2><span class="badge demo" data-demo hidden>Demo hours</span></div>
+          <p class="muted">Hours logged per client and service, for retainer checks.</p>
+          <div class="scroll tall"><table class="tbl" id="scope-table"><thead><tr><th>Client</th><th>Service</th><th class="num">Hours</th><th class="num">Tasks</th><th class="num">People</th></tr></thead><tbody></tbody></table></div></article>
+        <div class="grid g2">
+          <article class="card"><h2>Revisions</h2><p class="muted">Logs whose title or task says revision, amendment, re-edit or changes.</p><div id="rev-list"></div></article>
+          <article class="card"><h2>Internal &amp; clock-in time</h2><div id="internal-list"></div></article>
+        </div>
+      </section>
 
-  <!-- DATA QUALITY -->
-  <section id="tab-quality" class="tab" hidden>
-    <div class="tiles" id="dq-tiles"></div>
-    <div class="grid two">
-      <article class="card">
-        <h2>Timers left running (&gt;12h)</h2>
-        <p class="muted">Left out of every number unless "Include timers &gt;12h" is ticked. Not cut at midnight, so late work still counts.</p>
-        <table class="tbl" id="runaway-table"><thead><tr><th>Person</th><th>Date</th><th>Task</th><th class="num">Hours</th></tr></thead><tbody></tbody></table>
-      </article>
-      <article class="card">
-        <h2>Logs without a title</h2>
-        <p class="muted">Sessions where the person typed no description (Rework filled in the task name). Revision tracking reads these titles.</p>
-        <div id="untitled-list"></div>
-      </article>
-    </div>
-    <article class="card">
-      <h2>Coming with the task API</h2>
-      <ul class="muted">
-        <li>Time not linked to any task (started and stopped without choosing a task)</li>
-        <li>Tasks with no assignee, no deadline or no work item type</li>
-        <li>Overdue tasks that look finished (no recent hours, sitting in the last stage)</li>
-      </ul>
-    </article>
-  </section>
-</main>
+      <!-- DATA QUALITY -->
+      <section id="tab-quality" class="tab" hidden>
+        <div class="kpis" id="dq-kpis"></div>
+        <div class="grid g2">
+          <article class="card"><h2>Open tasks missing data</h2><p class="muted">Tasks without an assignee, a deadline or a work item type can't be counted in delivery and workload.</p><div class="scroll tall"><table class="tbl" id="missing-table"><thead><tr><th>Task</th><th>Client</th><th>Missing</th></tr></thead><tbody></tbody></table></div></article>
+          <article class="card"><h2>Overdue but probably finished</h2><p class="muted">Open and overdue, but sitting in a stage named done, approved, posted or completed: likely just not marked done.</p><div class="scroll tall"><table class="tbl" id="stale-table"><thead><tr><th>Task</th><th>Stage</th><th>Deadline</th></tr></thead><tbody></tbody></table></div></article>
+        </div>
+        <div class="grid g2">
+          <article class="card"><h2>Timers left running (&gt;12h)</h2><p class="muted">Left out of every number unless "Include timers &gt;12h" is ticked. Not cut at midnight.</p>
+            <table class="tbl" id="runaway-table"><thead><tr><th>Person</th><th>Date</th><th>Task</th><th class="num">Hours</th></tr></thead><tbody></tbody></table></article>
+          <article class="card"><h2>Logs without a title</h2><p class="muted">Sessions where the person typed no description. Revision tracking reads these titles.</p><div id="untitled-list"></div></article>
+        </div>
+      </section>
+    </main>
+  </div>
+</div>
 <div id="tip" class="tip" hidden></div>
 <script src="app.js"></script>
 </body>
