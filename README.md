@@ -36,24 +36,30 @@ report in the log; untick *dry run* to post it.
 
 ## Dashboard
 
-`site/` is the UDM time & delivery dashboard as a static site: `index.html` (page),
-`runtime.js` (loads the data), `vendor/` (d3) and `data/*.json`. It shows time and delivery,
-revisions and clock-in, with filters by month, week, client, service, team and person.
+`site/` is the time & delivery dashboard (static: `index.html`, `app.js`, `style.css`, `vendor/d3`,
+`data/*.json`). Tabs: **Dashboard** (hours by day/week/month, by project, by person, one person's
+tasks), **Team report** (hours and tasks per person as a share of their own team), **Delivery**
+(done / open / overdue by client), **Management** (client hours by scope, revisions, internal time)
+and **Data quality** (timers left running, logs without a title). Filters: date range, client,
+service, team, person. Everything is in hours.
 
-`data/` holds the 1–9 Oct 2026 snapshot until the Rework secrets are set. After that the
-**Refresh dashboard data** action rewrites it every day at 07:00 Malaysia time (first day of
-last month to yesterday) and commits it, which redeploys the site.
+`data/` holds the 1–9 Oct 2026 demo snapshot until Rework exposes time logs and task details
+through its API; then `udm_report.export` refreshes it.
 
-Deploy (no build step; both read their config from this repo):
+### Sign-in (Google, company accounts only)
 
-- **Vercel**: Add New → Project → import `udm-dashboard` → Deploy (`vercel.json` serves `site/`)
-- **Netlify**: Add new site → Import from Git → `udm-dashboard` → Deploy (`netlify.toml` publishes `site/`)
+`middleware.js` guards every page and data file; `api/auth/*` does the Google sign-in. Until these
+are set in Vercel (Project → Settings → Environment Variables), the site shows a setup notice and
+no data:
 
-The data names staff and their hours, so turn on password protection (Vercel: Settings →
-Deployment Protection; Netlify: Site configuration → Access control) or keep the link
-internal.
+| Variable | Value |
+|---|---|
+| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Cloud → APIs & Services → Credentials → OAuth client ID (Web application), redirect URI `https://<site>/api/auth/callback` |
+| `SESSION_SECRET` | a long random string (changing it signs everyone out) |
+| `ALLOWED_DOMAIN` | `unravel.com.my` |
+| `ALLOWED_EMAILS` | optional, comma-separated extra addresses |
 
-Preview locally: `cd site && python3 -m http.server`, then open http://localhost:8000.
+Sessions last 7 days. Tests: `node --test tests/auth.test.mjs`.
 
 ## Locally
 
