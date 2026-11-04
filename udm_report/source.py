@@ -46,7 +46,8 @@ class ApiSource:
     """Rework Projects Public API (v1): every call is a POST with a JSON body, the token goes in
     X-API-TOKEN and every call names an acting user (user_id) whose access narrows what comes back.
 
-    REWORK_API_BASE    https://api-v3.rework.com/project
+    REWORK_API_BASE    optional; defaults to https://api-v3.rework.com/project (with or without
+                       "/project" or "/project/v1" on the end, it is read the same way)
     REWORK_API_TOKEN   Settings app -> Apis -> API keys, app "project"
     REWORK_USER_ID     acting user; defaults to "api_user_id" in teams.json. Pick someone who can
                        see every service (a project manager), or services they can't see are skipped.
@@ -57,15 +58,25 @@ class ApiSource:
     "group_names" in teams.json.
     """
 
+    DEFAULT_BASE = "https://api-v3.rework.com/project"
     MIN_INTERVAL = 3.1  # seconds between calls: the token allows 200 requests / 10 minutes
 
+    @staticmethod
+    def normalise_base(base):
+        """Accept the host alone, host/project or host/project/v1; calls add /v1/... themselves."""
+        base = base.strip().rstrip("/")
+        if base.endswith("/v1"):
+            base = base[:-3]
+        if not base.endswith("/project"):
+            base += "/project"
+        return base
+
     def __init__(self, base=None, token=None, user_id=None, config=None):
-        base = base or os.environ.get("REWORK_API_BASE", "")
+        base = base or os.environ.get("REWORK_API_BASE", "") or self.DEFAULT_BASE
         token = token or os.environ.get("REWORK_API_TOKEN", "")
-        missing = [n for n, v in (("REWORK_API_BASE", base), ("REWORK_API_TOKEN", token)) if not v]
-        if missing:
-            raise SystemExit(f"Missing {', '.join(missing)}: add it under the repository's Actions secrets.")
-        self.base = base.rstrip("/")
+        if not token:
+            raise SystemExit("Missing REWORK_API_TOKEN: add it under the repository's Actions secrets.")
+        self.base = self.normalise_base(base)
         self.token = token
         self.config = config or {}
         self.user_id = int(user_id or os.environ.get("REWORK_USER_ID") or self.config.get("api_user_id") or 0)
@@ -93,6 +104,12 @@ class ApiSource:
         if out.get("status") != 1:
             raise SystemExit(f"Rework API error on {path}: {json.dumps(out)[:500]}")
         return out
+
+    def ping(self):
+        """Check the token and acting user: /v1/ping, then the services the user can see."""
+        self._post("/v1/ping")
+        names = [s.get("name", s.get("id")) for s in self.services()]
+        return f"Rework API OK at {self.base}: {len(names)} project services visible ({', '.join(names[:5])}{'…' if len(names) > 5 else ''})"
 
     def _pages(self, path, key, **body):
         page = 0

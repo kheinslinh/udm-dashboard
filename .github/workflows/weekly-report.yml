@@ -7,6 +7,10 @@ on:
         description: "Print the report in the log instead of posting to Discord"
         type: boolean
         default: true
+      ping_only:
+        description: "Only check the Rework API connection (no report)"
+        type: boolean
+        default: false
 
 jobs:
   report:
@@ -27,7 +31,7 @@ jobs:
           REWORK_PATH_WORK_ITEMS: ${{ secrets.REWORK_PATH_WORK_ITEMS }}
           DISCORD_WEBHOOK_URL: ${{ secrets.DISCORD_WEBHOOK_URL }}
           DASHBOARD_URL: ${{ vars.DASHBOARD_URL }}
-        run: python -m udm_report ${{ inputs.dry_run && '--dry-run' || '' }}
+        run: python -m udm_report ${{ inputs.ping_only && '--ping' || (inputs.dry_run && '--dry-run' || '') }}
 
   test:
     runs-on: ubuntu-latest

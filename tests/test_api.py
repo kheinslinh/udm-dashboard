@@ -19,6 +19,12 @@ class FakeResp(io.BytesIO):
 
 
 class ApiSourceTest(unittest.TestCase):
+    def test_base_url_forms(self):
+        for given in ("", "https://api-v3.rework.com", "https://api-v3.rework.com/project/",
+                      "https://api-v3.rework.com/project/v1"):
+            api = source.ApiSource(given or None, "tok", config={"api_user_id": 1})
+            self.assertEqual(api.base, "https://api-v3.rework.com/project")
+
     def test_public_api_v1_requests(self):
         calls = []
         pages = {

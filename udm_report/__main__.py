@@ -1,4 +1,4 @@
-"""python -m udm_report [--date YYYY-MM-DD] [--from-dir DIR] [--dry-run]
+"""python -m udm_report [--date YYYY-MM-DD] [--from-dir DIR] [--dry-run] [--ping]
 
 Builds the UDM weekly report from Rework and posts it to Discord (DISCORD_WEBHOOK_URL).
 On the first Friday of a month it also posts last month's client-hours summary.
@@ -23,7 +23,11 @@ def main(argv=None):
     p.add_argument("--date", help="run day (default: today in Malaysia time)")
     p.add_argument("--from-dir", help="read saved Rework responses instead of calling the API")
     p.add_argument("--dry-run", action="store_true", help="print instead of posting to Discord")
+    p.add_argument("--ping", action="store_true", help="only check the Rework API connection and stop")
     args = p.parse_args(argv)
+    if args.ping:
+        print(ApiSource(config=CONFIG).ping())
+        return 0
 
     run_day = date.fromisoformat(args.date) if args.date else datetime.now(compute.MYT).date()
     source = DirSource(args.from_dir) if args.from_dir else ApiSource(config=CONFIG)
