@@ -136,7 +136,7 @@
     svg.append('g').attr('transform', `translate(0,${H - m.b})`).call(d3.axisBottom(x).tickValues(data.filter((_, i) => i % step === 0).map((d) => d.k)).tickFormat((k) => data.find((d) => d.k === k).l)).selectAll('text').attr('fill', 'currentColor');
     svg.append('g').selectAll('rect').data(data).join('rect')
       .attr('x', (d) => x(d.k)).attr('width', x.bandwidth()).attr('y', (d) => y(d.v)).attr('height', (d) => y(0) - y(d.v))
-      .attr('rx', 3).attr('fill', 'var(--accent)')
+      .attr('rx', 2).attr('fill', 'var(--brand)')
       .on('mousemove', (ev, d) => showTip(ev, `${d.l}: ${h(d.v)}`)).on('mouseleave', () => { tip.hidden = true; });
     svg.selectAll('.tick line').attr('stroke', 'var(--line)');
   }
@@ -239,14 +239,14 @@
       ['Overdue', String(overdue), `${projs.filter((p) => p.overdue > 0).length} projects at risk`],
       ['Open (not overdue)', String(open), `${projs.length} projects`],
     ]);
-    donut([{ n: 'Done', v: done, c: 'var(--ok)' }, { n: 'Open', v: open, c: 'var(--accent)' }, { n: 'Overdue', v: overdue, c: 'var(--bad)' }]);
+    donut([{ n: 'Done', v: done, c: 'var(--brand)' }, { n: 'Open', v: open, c: '#c9a6ff' }, { n: 'Overdue', v: overdue, c: 'var(--orange)' }]);
     const byClient = new Map();
     for (const p of projs) {
       const c = byClient.get(p.service_group) || { done: 0, total: 0, overdue: 0 };
       c.done += p.done; c.total += p.total; c.overdue += p.overdue;
       byClient.set(p.service_group, c);
     }
-    bars('#bars-overdue', [...byClient.entries()].map(([k, v]) => [k, v.overdue]).filter((x) => x[1] > 0).sort((a, b) => b[1] - a[1]), { fmt: String, color: () => 'var(--bad)', onPick: (c) => { $('#f-client').value = c; refreshOptions(); draw(); } });
+    bars('#bars-overdue', [...byClient.entries()].map(([k, v]) => [k, v.overdue]).filter((x) => x[1] > 0).sort((a, b) => b[1] - a[1]), { fmt: String, color: () => 'var(--orange)', onPick: (c) => { $('#f-client').value = c; refreshOptions(); draw(); } });
     const hoursByClient = new Map(groupSum(sessionRows(f), (r) => r.service_group));
     table('#deliv-table', [...byClient.entries()].sort((a, b) => b[1].total - a[1].total).map(([k, v]) => [
       k, [v.done, 'num'], [v.total, 'num'], [pct(v.total ? v.done / v.total : NaN), 'num'], [v.overdue, v.overdue ? 'num bad' : 'num'], [h(hoursByClient.get(k) || 0), 'num']]));
