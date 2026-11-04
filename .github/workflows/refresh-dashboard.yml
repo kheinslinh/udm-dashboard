@@ -2,6 +2,11 @@ name: Refresh dashboard data
 
 on:
   workflow_dispatch:
+    inputs:
+      ping_only:
+        description: "Only check the Rework API connection (no export, no commit)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -15,7 +20,14 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Check Rework API connection
+        if: inputs.ping_only
+        env:
+          REWORK_API_BASE: ${{ secrets.REWORK_API_BASE }}
+          REWORK_API_TOKEN: ${{ secrets.REWORK_API_TOKEN }}
+        run: python -m udm_report --ping
       - name: Export from Rework
+        if: ${{ !inputs.ping_only }}
         env:
           REWORK_API_BASE: ${{ secrets.REWORK_API_BASE }}
           REWORK_API_TOKEN: ${{ secrets.REWORK_API_TOKEN }}
@@ -25,6 +37,7 @@ jobs:
           REWORK_PATH_WORK_ITEMS: ${{ secrets.REWORK_PATH_WORK_ITEMS }}
         run: python -m udm_report.export --out site/data
       - name: Commit if changed
+        if: ${{ !inputs.ping_only }}
         run: |
           git add site/data
           if git diff --cached --quiet; then echo "No change"; exit 0; fi

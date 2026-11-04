@@ -31,8 +31,9 @@ Repository secrets (Settings → Secrets and variables → Actions):
 Optional variable `DASHBOARD_URL` adds a link at the end. If the Rework API paths differ from
 the defaults in `udm_report/source.py`, set `REWORK_PATH_*` the same way.
 
-Run it once by hand from the Actions tab (**Weekly report → Run workflow**). It prints the
-report in the log; untick *dry run* to post it.
+There is no workflow for the weekly report any more; run it by hand with
+`python -m udm_report --dry-run` (prints) or without `--dry-run` (posts). To check the Rework API
+connection, run **Refresh dashboard data** from the Actions tab with *ping only* ticked.
 
 ## Dashboard
 
