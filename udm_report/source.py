@@ -77,7 +77,7 @@ class ApiSource:
         if not token:
             raise SystemExit("Missing REWORK_API_TOKEN: add it under the repository's Actions secrets.")
         self.base = self.normalise_base(base)
-        self.token = token
+        self.token = token.strip()
         self.config = config or {}
         self.user_id = int(user_id or os.environ.get("REWORK_USER_ID") or self.config.get("api_user_id") or 0)
         if not self.user_id:
