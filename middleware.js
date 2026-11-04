@@ -1,7 +1,8 @@
 // Every page and data file needs the team password (see lib/session.js).
 import { COOKIE, loginPage, readCookie, settings, verify } from './lib/session.js';
 
-export const config = { matcher: ['/((?!api/auth/).*)'] };
+// Logo and icons stay public so the password page can show them; nothing else does.
+export const config = { matcher: ['/((?!api/auth/|assets/).*)'] };
 
 export default async function middleware(request) {
   const cfg = await settings();

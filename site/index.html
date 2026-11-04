@@ -5,12 +5,14 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>UDM Time & Delivery</title>
 <link rel="stylesheet" href="style.css">
+<link rel="icon" type="image/png" href="assets/favicon.png">
+<link rel="apple-touch-icon" href="assets/apple-touch-icon.png">
 <script src="vendor/d3.v7.9.0.min.js"></script>
 </head>
 <body>
 <header class="top">
   <div class="top-row">
-    <div class="brand"><span class="mark" aria-label="UnRavel"><span class="u">UN</span><span class="r">R</span><span class="u">AVEL</span></span><span class="sep"></span><h1>Time &amp; delivery</h1></div>
+    <div class="brand"><img src="assets/unravel-wordmark.png" alt="UnRavel" class="logo"><span class="sep"></span><h1>Time &amp; delivery</h1></div>
     <div class="top-meta"><span id="snapshot-note">Loading…</span> · <a href="/api/auth/logout">Sign out</a></div>
   </div>
   <nav class="tabs" role="tablist">
@@ -20,6 +22,7 @@
     <button data-tab="management">Management</button>
     <button data-tab="quality">Data quality</button>
   </nav>
+  <div class="band">
   <section class="filters" aria-label="Filters">
     <label>From <input type="date" id="f-from"></label>
     <label>To <input type="date" id="f-to"></label>
@@ -30,6 +33,7 @@
     <label class="check"><input type="checkbox" id="f-runaway"> Include timers &gt;12h</label>
     <button id="f-reset" class="ghost">Reset</button>
   </section>
+  </div>
 </header>
 
 <main>
