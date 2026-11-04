@@ -46,8 +46,10 @@ jobs:
       - name: Commit if changed
         if: ${{ !inputs.ping_only }}
         run: |
+          git config user.name "udm-report bot"
+          git config user.email "actions@github.com"
           git add site/data
           if git diff --cached --quiet; then echo "No change"; exit 0; fi
-          git -c user.name="udm-report bot" -c user.email="actions@github.com" commit -m "Refresh dashboard data"
+          git commit -m "Refresh dashboard data"
           git pull --rebase --quiet origin main
           git push

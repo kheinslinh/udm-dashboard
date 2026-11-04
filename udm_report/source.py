@@ -172,10 +172,10 @@ class ApiSource:
         return found
 
     def stages(self, service_id):
-        return self._optional("/v1/service/get.stages", "stages", service_id=service_id)
+        return self._optional("/v1/service/get.stages", "stages", id=service_id)
 
     def item_types(self, service_id):
-        return self._optional("/v1/service/get.itemtypes", "itemtypes", service_id=service_id)
+        return self._optional("/v1/service/get.itemtypes", "itemtypes", id=service_id)
 
     def groups(self):
         return [{"id": k, "name": v} for k, v in self.config.get("group_names", {}).items()]
