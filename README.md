@@ -25,7 +25,7 @@ day before. One timer session over 12h counts as left running and is excluded. T
 
 Repository secrets (Settings → Secrets and variables → Actions):
 
-- `REWORK_API_TOKEN`: Rework API token (Settings app → APIs → API keys). `REWORK_API_BASE` is optional (default `https://api-v3.rework.com/project`)
+- `REWORK_API_TOKEN`: the **Secret** of the Project key (Settings app → APIs → API keys), sent as `X-API-TOKEN`. `REWORK_API_KEY`: the **API key** of the same key, sent as `Authorization: Bearer`. `REWORK_API_BASE` is optional (default `https://api-v3.rework.com/project`)
 - `DISCORD_WEBHOOK_URL`: the channel's webhook
 
 Optional variable `DASHBOARD_URL` adds a link at the end. If the Rework API paths differ from

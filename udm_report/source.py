@@ -48,7 +48,8 @@ class ApiSource:
 
     REWORK_API_BASE    optional; defaults to https://api-v3.rework.com/project (with or without
                        "/project" or "/project/v1" on the end, it is read the same way)
-    REWORK_API_TOKEN   Settings app -> Apis -> API keys, app "project"
+    REWORK_API_TOKEN   Settings app -> APIs -> API keys, app "project": the "Secret" field (sent as X-API-TOKEN)
+    REWORK_API_KEY     optional, same screen: the "API key" field (sent as Authorization: Bearer)
     REWORK_USER_ID     acting user; defaults to "api_user_id" in teams.json. Pick someone who can
                        see every service (a project manager), or services they can't see are skipped.
     REWORK_PATH_RESOURCE_ITEMS  endpoint for a service's timer sessions. Public API v1 has none yet;
@@ -74,7 +75,8 @@ class ApiSource:
     def __init__(self, base=None, token=None, user_id=None, config=None):
         base = base or os.environ.get("REWORK_API_BASE", "") or self.DEFAULT_BASE
         token = token or os.environ.get("REWORK_API_TOKEN", "")
-        if not token:
+        self.api_key = os.environ.get("REWORK_API_KEY", "").strip()
+        if not token and not self.api_key:
             raise SystemExit("Missing REWORK_API_TOKEN: add it under the repository's Actions secrets.")
         self.base = self.normalise_base(base)
         self.token = token.strip()
@@ -91,8 +93,12 @@ class ApiSource:
             time.sleep(wait)
         self._last = time.monotonic()
         data = json.dumps({"user_id": self.user_id, **body}).encode()
-        req = urllib.request.Request(self.base + path, data=data, method="POST", headers={
-            "X-API-TOKEN": self.token, "Content-Type": "application/json", "Accept": "application/json"})
+        headers = {"Content-Type": "application/json", "Accept": "application/json"}
+        if self.token:
+            headers["X-API-TOKEN"] = self.token
+        if self.api_key:
+            headers["Authorization"] = f"Bearer {self.api_key}"
+        req = urllib.request.Request(self.base + path, data=data, method="POST", headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=60) as resp:
                 out = json.load(resp)
