@@ -335,4 +335,89 @@
       $('#snapshot-note').textContent = 'Could not load data: ' + e.message;
     }
   })();
+
+  // ---- Sync with Rework: the button starts a refresh; opening the page starts one when the
+  // data is more than 30 minutes old (the server decides). When the run finishes and Vercel has
+  // redeployed the new data, the page reloads itself.
+  const syncBtn = $('#sync');
+  const syncNote = $('#sync-note');
+  const fmtTime = (iso) => new Date(iso).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+  let stamp = null;
+  let waitingSince = 0;
+  let pollTimer = null;
+
+  async function dataStamp() {
+    try {
+      const r = await fetch('data/sync.json', { cache: 'no-cache' });
+      return r.ok ? (await r.json()).updated_at || null : null;
+    } catch { return null; }
+  }
+
+  async function syncApi(method, body) {
+    const r = await fetch('/api/sync', {
+      method, cache: 'no-store',
+      headers: body ? { 'content-type': 'application/json' } : {},
+      body: body ? JSON.stringify(body) : undefined,
+    });
+    const out = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+    return out;
+  }
+
+  function idle(text, bad = false) {
+    syncBtn.disabled = false;
+    syncBtn.textContent = 'Sync';
+    syncNote.textContent = text;
+    syncNote.classList.toggle('bad', bad);
+  }
+
+  function busy(text) {
+    syncBtn.disabled = true;
+    syncBtn.textContent = 'Syncing…';
+    syncNote.textContent = text;
+    syncNote.classList.remove('bad');
+  }
+
+  const syncedText = () => (stamp ? `Synced ${fmtTime(stamp)}` : 'Not synced yet');
+
+  function show(res) {
+    if (!res || res.configured === false) { syncBtn.hidden = true; idle(syncedText()); return false; }
+    if (res.error) { idle(`${syncedText()} · sync unavailable (${res.error})`, true); return false; }
+    const run = res.run;
+    const ours = run && Date.parse(run.started_at) >= waitingSince - 60000;
+    if (run && run.status !== 'completed') { busy(`Syncing since ${fmtTime(run.started_at)}…`); return true; }
+    if (waitingSince && !ours) { busy('Starting sync…'); return true; }
+    if (waitingSince && run.conclusion !== 'success') {
+      waitingSince = 0;
+      idle(`${syncedText()} · last sync failed`, true);
+      if (run.url) syncNote.innerHTML += ` (<a href="${run.url}" target="_blank" rel="noopener">details</a>)`;
+      return false;
+    }
+    if (waitingSince) { busy('Publishing new data…'); return 'deploy'; }
+    idle(syncedText());
+    return false;
+  }
+
+  async function poll() {
+    clearTimeout(pollTimer);
+    const state = show(await syncApi('GET'));
+    if (state === 'deploy') {
+      const now = await dataStamp();
+      if (now && now !== stamp) { location.reload(); return; }
+      if (Date.now() - waitingSince > 90 * 60000) { waitingSince = 0; idle(syncedText()); return; }
+    }
+    if (state) pollTimer = setTimeout(poll, 20000);
+  }
+
+  async function startSync(auto) {
+    const res = await syncApi('POST', { auto });
+    if (res.started || (res.run && res.run.status !== 'completed')) waitingSince = res.started ? Date.now() : Date.parse(res.run.started_at);
+    if (show(res)) pollTimer = setTimeout(poll, 20000);
+  }
+
+  syncBtn.addEventListener('click', () => { busy('Starting sync…'); startSync(false); });
+  (async () => {
+    stamp = await dataStamp();
+    idle(syncedText());
+    startSync(true);
+  })();
 })();

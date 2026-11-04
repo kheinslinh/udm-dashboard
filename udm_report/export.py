@@ -118,6 +118,11 @@ def main(argv=None):
         # No time-log endpoint yet: keep the last hours snapshot instead of blanking the dashboard.
         for name in ("sessions", "meta"):
             files.pop(name)
+    files["sync"] = {
+        "updated_at": datetime.now(compute.MYT).astimezone().isoformat(timespec="seconds"),
+        "hours_source": "rework" if sessions else "snapshot",
+        "tasks": len(tasks), "projects": len(files["projects"]),
+    }
     for name, data in files.items():
         (out / f"{name}.json").write_text(json.dumps(data, ensure_ascii=False, indent=0 if name == "meta" else None))
     print(f"wrote {len(files.get('sessions', []))} sessions, {len(files['projects'])} projects to {out}")

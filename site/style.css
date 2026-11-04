@@ -26,6 +26,10 @@ a { color: var(--accent); }
 h1 { font-size: 15px; margin: 0; font-weight: 600; text-transform: uppercase; letter-spacing: 0.06em; }
 .top-meta { color: var(--muted); font-size: 12px; }
 .top-meta a { color: var(--brand); }
+.top-meta { display: flex; flex-wrap: wrap; align-items: center; gap: 4px 6px; }
+button.sync { font: inherit; font-size: 12px; font-weight: 600; background: var(--brand); color: #fff; border: 0; border-radius: 2px; padding: 4px 12px; cursor: pointer; }
+button.sync:disabled { background: var(--brand-soft); color: var(--brand); cursor: progress; }
+#sync-note.bad { color: var(--bad); }
 .tabs { display: flex; gap: 4px; overflow-x: auto; max-width: 1280px; margin: 10px auto 0; }
 .tabs button { font: inherit; font-size: 13px; font-weight: 600; text-transform: uppercase; letter-spacing: 0.04em; background: none; border: 0; border-bottom: 3px solid transparent; padding: 10px 14px; color: var(--fg); cursor: pointer; white-space: nowrap; }
 .tabs button:hover { color: var(--brand); }

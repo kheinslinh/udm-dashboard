@@ -11,6 +11,11 @@ on:
 permissions:
   contents: write
 
+# One refresh at a time; a Sync pressed during a run waits for it instead of starting a second one.
+concurrency:
+  group: refresh-dashboard
+  cancel-in-progress: false
+
 jobs:
   refresh:
     runs-on: ubuntu-latest
@@ -44,4 +49,5 @@ jobs:
           git add site/data
           if git diff --cached --quiet; then echo "No change"; exit 0; fi
           git -c user.name="udm-report bot" -c user.email="actions@github.com" commit -m "Refresh dashboard data"
+          git pull --rebase --quiet origin main
           git push
