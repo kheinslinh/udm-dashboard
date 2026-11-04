@@ -111,11 +111,36 @@ class ApiSource:
             raise SystemExit(f"Rework API error on {path}: {json.dumps(out)[:500]}")
         return out
 
+    def _try(self, headers):
+        """One bare POST to /v1/ping; returns the HTTP status (no retry, no secrets in the result)."""
+        data = json.dumps({"user_id": self.user_id}).encode()
+        req = urllib.request.Request(self.base + "/v1/ping", data=data, method="POST",
+                                     headers={"Content-Type": "application/json", **headers})
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                return resp.status
+        except urllib.error.HTTPError as e:
+            return e.code
+
     def ping(self):
-        """Check the token and acting user: /v1/ping, then the services the user can see."""
-        self._post("/v1/ping")
-        names = [s.get("name", s.get("id")) for s in self.services()]
-        return f"Rework API OK at {self.base}: {len(names)} project services visible ({', '.join(names[:5])}{'…' if len(names) > 5 else ''})"
+        """Find which header carries the key, then list the services the acting user can see."""
+        tried = []
+        for label, value, header in (("Secret in X-API-TOKEN", self.token, "x"),
+                                     ("API key in Authorization: Bearer", self.api_key, "b"),
+                                     ("API key in X-API-TOKEN", self.api_key, "x"),
+                                     ("Secret in Authorization: Bearer", self.token, "b")):
+            if not value:
+                continue
+            headers = {"X-API-TOKEN": value} if header == "x" else {"Authorization": f"Bearer {value}"}
+            code = self._try(headers)
+            tried.append(f"  {label}: HTTP {code}")
+            if code == 200:
+                self.token, self.api_key = (value, "") if header == "x" else ("", value)
+                names = [s.get("name", s.get("id")) for s in self.services()]
+                return "\n".join(tried + [f"Rework API OK with {label}: {len(names)} project services visible "
+                                          f"({', '.join(names[:5])}{'…' if len(names) > 5 else ''})"])
+            time.sleep(self.MIN_INTERVAL)
+        raise SystemExit("No header combination was accepted:\n" + "\n".join(tried))
 
     def _pages(self, path, key, **body):
         page = 0
