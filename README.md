@@ -46,20 +46,12 @@ service, team, person. Everything is in hours.
 `data/` holds the 1–9 Oct 2026 demo snapshot until Rework exposes time logs and task details
 through its API; then `udm_report.export` refreshes it.
 
-### Sign-in (Google, company accounts only)
+### Password
 
-`middleware.js` guards every page and data file; `api/auth/*` does the Google sign-in. Until these
-are set in Vercel (Project → Settings → Environment Variables), the site shows a setup notice and
-no data:
-
-| Variable | Value |
-|---|---|
-| `GOOGLE_CLIENT_ID` / `GOOGLE_CLIENT_SECRET` | Google Cloud → APIs & Services → Credentials → OAuth client ID (Web application), redirect URI `https://<site>/api/auth/callback` |
-| `SESSION_SECRET` | a long random string (changing it signs everyone out) |
-| `ALLOWED_DOMAIN` | `unravel.com.my` |
-| `ALLOWED_EMAILS` | optional, comma-separated extra addresses |
-
-Sessions last 7 days. Tests: `node --test tests/auth.test.mjs`.
+`middleware.js` shows a password page before any page or data file; `api/auth/login` checks it and
+sets a signed cookie for 7 days, `api/auth/logout` clears it. The default password is stored only as
+a SHA-256 hash in `lib/session.js`. To change it, set `SITE_PASSWORD` in Vercel (Project → Settings →
+Environment Variables) and redeploy; that also signs everyone out. Tests: `node --test tests/auth.test.mjs`.
 
 ## Locally
 
