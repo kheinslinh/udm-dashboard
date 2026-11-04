@@ -48,8 +48,9 @@ class ApiSource:
 
     REWORK_API_BASE    optional; defaults to https://api-v3.rework.com/project (with or without
                        "/project" or "/project/v1" on the end, it is read the same way)
-    REWORK_API_TOKEN   Settings app -> APIs -> API keys, app "project": the "Secret" field (sent as X-API-TOKEN)
-    REWORK_API_KEY     optional, same screen: the "API key" field (sent as Authorization: Bearer)
+    REWORK_API_KEY       Settings app -> APIs -> API keys, app "project": the "API key" field (X-API-TOKEN)
+    REWORK_API_PASSWORD  same screen: the "Password" field (X-API-PASSWORD)
+    (REWORK_API_TOKEN is read as a fallback for REWORK_API_KEY.)
     REWORK_USER_ID     acting user; defaults to "api_user_id" in teams.json. Pick someone who can
                        see every service (a project manager), or services they can't see are skipped.
     REWORK_PATH_RESOURCE_ITEMS  endpoint for a service's timer sessions. Public API v1 has none yet;
@@ -74,13 +75,10 @@ class ApiSource:
 
     def __init__(self, base=None, token=None, user_id=None, config=None):
         base = base or os.environ.get("REWORK_API_BASE", "") or self.DEFAULT_BASE
-        token = token or os.environ.get("REWORK_API_TOKEN", "")
-        self.api_key = os.environ.get("REWORK_API_KEY", "").strip()
+        token = token or os.environ.get("REWORK_API_KEY", "") or os.environ.get("REWORK_API_TOKEN", "")
         self.password = os.environ.get("REWORK_API_PASSWORD", "").strip()
-        self.token_id = os.environ.get("REWORK_API_TOKEN_ID", "").strip()
-        self.extra_headers = {}
-        if not token and not self.api_key:
-            raise SystemExit("Missing REWORK_API_TOKEN: add it under the repository's Actions secrets.")
+        if not token:
+            raise SystemExit("Missing REWORK_API_KEY: add it under the repository's Actions secrets.")
         self.base = self.normalise_base(base)
         self.token = token.strip()
         self.config = config or {}
@@ -96,12 +94,9 @@ class ApiSource:
             time.sleep(wait)
         self._last = time.monotonic()
         data = json.dumps({"user_id": self.user_id, **body}).encode()
-        headers = {"Content-Type": "application/json", "Accept": "application/json"}
-        if self.token:
-            headers["X-API-TOKEN"] = self.token
-        if self.api_key:
-            headers["Authorization"] = f"Bearer {self.api_key}"
-        headers.update(self.extra_headers)
+        headers = {"Content-Type": "application/json", "Accept": "application/json", "X-API-TOKEN": self.token}
+        if self.password:
+            headers["X-API-PASSWORD"] = self.password
         req = urllib.request.Request(self.base + path, data=data, method="POST", headers=headers)
         try:
             with urllib.request.urlopen(req, timeout=60) as resp:
@@ -115,51 +110,12 @@ class ApiSource:
             raise SystemExit(f"Rework API error on {path}: {json.dumps(out)[:500]}")
         return out
 
-    def _try(self, headers):
-        """One bare POST to /v1/ping; returns the HTTP status (no retry, no secrets in the result)."""
-        data = json.dumps({"user_id": self.user_id}).encode()
-        req = urllib.request.Request(self.base + "/v1/ping", data=data, method="POST",
-                                     headers={"Content-Type": "application/json", **headers})
-        try:
-            with urllib.request.urlopen(req, timeout=60) as resp:
-                return resp.status
-        except urllib.error.HTTPError as e:
-            return e.code
-
-    def _candidates(self):
-        """Header sets to try, as (label, headers). Labels only, never values, reach the log."""
-        import base64
-        sec, key, pw, tid = self.token, self.api_key, self.password, self.token_id
-        basic = lambda u, p: {"Authorization": "Basic " + base64.b64encode(f"{u}:{p}".encode()).decode()}
-        out = [
-            ("Secret in X-API-TOKEN", sec and {"X-API-TOKEN": sec}),
-            ("API key as Bearer", key and {"Authorization": f"Bearer {key}"}),
-            ("API key in X-API-TOKEN", key and {"X-API-TOKEN": key}),
-            ("Secret as Bearer", sec and {"Authorization": f"Bearer {sec}"}),
-            ("Secret in X-API-TOKEN + Password in X-API-PASSWORD", sec and pw and {"X-API-TOKEN": sec, "X-API-PASSWORD": pw}),
-            ("API key in X-API-TOKEN + Password in X-API-PASSWORD", key and pw and {"X-API-TOKEN": key, "X-API-PASSWORD": pw}),
-            ("Secret in X-API-TOKEN + Password in X-API-SECRET", sec and pw and {"X-API-TOKEN": sec, "X-API-SECRET": pw}),
-            ("Token id in X-API-TOKEN + Secret in X-API-SECRET", tid and sec and {"X-API-TOKEN": tid, "X-API-SECRET": sec}),
-            ("Basic auth Token id : Password", tid and pw and basic(tid, pw)),
-            ("Basic auth Token id : Secret", tid and sec and basic(tid, sec)),
-            ("Basic auth Secret : Password", sec and pw and basic(sec, pw)),
-        ]
-        return [(label, h) for label, h in out if h]
-
     def ping(self):
-        """Find which headers the key needs, then list the services the acting user can see."""
-        tried = []
-        for label, headers in self._candidates():
-            code = self._try(headers)
-            tried.append(f"  {label}: HTTP {code}")
-            if code == 200:
-                self.token = self.api_key = ""
-                self.extra_headers = headers
-                names = [s.get("name", s.get("id")) for s in self.services()]
-                return "\n".join(tried + [f"Rework API OK with {label}: {len(names)} project services visible "
-                                          f"({', '.join(names[:5])}{'…' if len(names) > 5 else ''})"])
-            time.sleep(self.MIN_INTERVAL)
-        raise SystemExit("No header combination was accepted:\n" + "\n".join(tried))
+        """Check the key and acting user: /v1/ping, then the services the user can see."""
+        self._post("/v1/ping")
+        names = [s.get("name", s.get("id")) for s in self._pages("/v1/service/all", "services")]
+        return (f"Rework API OK at {self.base}: {len(names)} services visible "
+                f"({', '.join(names[:5])}{'…' if len(names) > 5 else ''})")
 
     def _pages(self, path, key, **body):
         page = 0
