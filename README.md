@@ -31,11 +31,12 @@ Repository secrets (Settings → Secrets and variables → Actions):
 Optional variable `DASHBOARD_URL` adds a link at the end. If the Rework API paths differ from
 the defaults in `udm_report/source.py`, set `REWORK_PATH_*` the same way.
 
-**Sync.** The dashboard's **Sync** button starts the *Refresh dashboard data* workflow (pull Rework,
-commit `site/data`, Vercel redeploys) and reloads the page when the new data is live. Opening the
-dashboard does the same when the last run finished more than 30 minutes ago. This needs a Vercel
-environment variable `GITHUB_TOKEN`: a fine-grained GitHub token for this repository with
-*Actions: Read and write*. Without it the button is hidden.
+**Live data.** Tasks and projects load from `/api/data`, which pulls Rework directly (one call for
+all projects, then task lists in parallel; about 10–20 s) and is cached by Vercel's CDN for 5
+minutes. The browser keeps the last answer, so the page draws at once and updates in the
+background. **Sync** forces a fresh pull. Needs Vercel environment variables `REWORK_API_KEY` and
+`REWORK_API_PASSWORD` (same values as the GitHub secrets). The *Refresh dashboard data* workflow
+still writes a snapshot to `site/data` as a fallback.
 
 There is no workflow for the weekly report any more; run it by hand with
 `python -m udm_report --dry-run` (prints) or without `--dry-run` (posts). To check the Rework API

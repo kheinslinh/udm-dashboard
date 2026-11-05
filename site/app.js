@@ -651,6 +651,58 @@
   let width = innerWidth;
   addEventListener('resize', () => { if (Math.abs(innerWidth - width) > 8) { width = innerWidth; draw(); } });
 
+  // ---------- data loading ----------
+  // Tasks and projects come live from /api/data (Rework, cached by Vercel for 5 minutes). The last
+  // answer is kept in this browser so the page draws at once; the bundled files are the fallback.
+  const CACHE_KEY = 'udm-live-v1';
+  const syncBtn = $('#sync');
+  const syncNote = $('#sync-note');
+  const fmtTime = (s) => new Date(s).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
+
+  function setLive(live) {
+    DATA.tasks = live.tasks.map((t) => ({ ...t, st: taskState(t) }));
+    DATA.projects = live.projects;
+    DATA.sync = { ...(DATA.sync || {}), ...live.sync };
+  }
+
+  function note(text, bad = false) {
+    syncNote.textContent = text;
+    syncNote.classList.toggle('bad', bad);
+  }
+  const syncedText = () => (DATA.sync && DATA.sync.updated_at ? `Updated ${fmtTime(DATA.sync.updated_at)}` : 'Not synced yet');
+
+  async function fetchLive(fresh) {
+    const r = await fetch('/api/data' + (fresh ? `?fresh=${Date.now()}` : ''), { cache: fresh ? 'no-store' : 'default' });
+    const body = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
+    if (!r.ok || body.error) { const e = new Error(body.error || `HTTP ${r.status}`); e.status = r.status; throw e; }
+    return body;
+  }
+
+  async function refresh(fresh) {
+    syncBtn.disabled = true;
+    syncBtn.textContent = 'Syncing…';
+    const t0 = Date.now();
+    const tick = setInterval(() => note(`Syncing with Rework… ${Math.round((Date.now() - t0) / 1000)}s`), 1000);
+    note('Syncing with Rework…');
+    try {
+      const live = await fetchLive(fresh);
+      setLive(live);
+      try { localStorage.setItem(CACHE_KEY, JSON.stringify(live)); } catch { /* storage full or blocked: fine */ }
+      refreshOptions();
+      draw();
+      note(syncedText());
+    } catch (e) {
+      if (e.status === 503) { syncBtn.hidden = true; note(`${syncedText()} · live sync not set up`); }
+      else note(`${syncedText()} · sync failed (${e.message})`, true);
+    } finally {
+      clearInterval(tick);
+      syncBtn.disabled = false;
+      syncBtn.textContent = 'Sync';
+    }
+  }
+
+  syncBtn.addEventListener('click', () => refresh(true));
+
   (async () => {
     try {
       const [sessions, projects, people, meta, tasks, sync] = await Promise.all([
@@ -660,98 +712,18 @@
         projects, people, meta, sync,
         tasks: tasks.map((t) => ({ ...t, st: taskState(t) })),
       };
-      HOURS_DEMO = !sync || sync.hours_source !== 'rework';
+      let cached = null;
+      try { cached = JSON.parse(localStorage.getItem(CACHE_KEY) || 'null'); } catch { cached = null; }
+      if (cached && cached.sync && (!sync || cached.sync.updated_at > sync.updated_at)) setLive(cached);
+      HOURS_DEMO = !DATA.sync || DATA.sync.hours_source !== 'rework';
       resetFilters();
       refreshOptions();
       setTab(location.hash.slice(1));
+      note(syncedText());
     } catch (e) {
       $('#page-sub').textContent = 'Could not load data: ' + e.message;
+      return;
     }
-  })();
-
-  // ---- Sync with Rework: the button starts a refresh; opening the page starts one when the
-  // data is more than 30 minutes old (the server decides). When the run finishes and Vercel has
-  // redeployed the new data, the page reloads itself.
-  const syncBtn = $('#sync');
-  const syncNote = $('#sync-note');
-  const fmtTime = (s) => new Date(s).toLocaleString(undefined, { day: 'numeric', month: 'short', hour: '2-digit', minute: '2-digit' });
-  let stamp = null;
-  let waitingSince = 0;
-  let pollTimer = null;
-
-  async function dataStamp() {
-    try {
-      const r = await fetch('data/sync.json', { cache: 'no-cache' });
-      return r.ok ? (await r.json()).updated_at || null : null;
-    } catch { return null; }
-  }
-
-  async function syncApi(method, body) {
-    try {
-      const r = await fetch('/api/sync', {
-        method, cache: 'no-store',
-        headers: body ? { 'content-type': 'application/json' } : {},
-        body: body ? JSON.stringify(body) : undefined,
-      });
-      return await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
-    } catch (e) { return { error: e.message }; }
-  }
-
-  function idle(text, bad = false) {
-    syncBtn.disabled = false;
-    syncBtn.textContent = 'Sync';
-    syncNote.textContent = text;
-    syncNote.classList.toggle('bad', bad);
-  }
-
-  function busy(text) {
-    syncBtn.disabled = true;
-    syncBtn.textContent = 'Syncing…';
-    syncNote.textContent = text;
-    syncNote.classList.remove('bad');
-  }
-
-  const syncedText = () => (stamp ? `Synced ${fmtTime(stamp)}` : 'Not synced yet');
-
-  function show(res) {
-    if (!res || res.configured === false) { syncBtn.hidden = true; idle(syncedText()); return false; }
-    if (res.error) { idle(`${syncedText()} · sync unavailable`, true); return false; }
-    const run = res.run;
-    const ours = run && Date.parse(run.started_at) >= waitingSince - 60000;
-    if (run && run.status !== 'completed') { busy(`Syncing since ${fmtTime(run.started_at)}…`); return true; }
-    if (waitingSince && !ours) { busy('Starting sync…'); return true; }
-    if (waitingSince && run.conclusion !== 'success') {
-      waitingSince = 0;
-      idle(`${syncedText()} · last sync failed`, true);
-      if (run.url) { syncNote.append(' ('); syncNote.append(el('a', { href: run.url, target: '_blank', rel: 'noopener' }, 'details')); syncNote.append(')'); }
-      return false;
-    }
-    if (waitingSince) { busy('Publishing new data…'); return 'deploy'; }
-    idle(syncedText());
-    return false;
-  }
-
-  async function poll() {
-    clearTimeout(pollTimer);
-    const st = show(await syncApi('GET'));
-    if (st === 'deploy') {
-      const now = await dataStamp();
-      if (now && now !== stamp) { location.reload(); return; }
-      if (Date.now() - waitingSince > 90 * 60000) { waitingSince = 0; idle(syncedText()); return; }
-    }
-    if (st) pollTimer = setTimeout(poll, 20000);
-  }
-
-  async function startSync(auto) {
-    const res = await syncApi('POST', { auto });
-    if (res.started || (res.run && res.run.status !== 'completed')) waitingSince = res.started ? Date.now() : Date.parse(res.run.started_at);
-    if (show(res)) pollTimer = setTimeout(poll, 20000);
-  }
-
-  syncBtn.addEventListener('click', () => { busy('Starting sync…'); startSync(false); });
-  (async () => {
-    stamp = await dataStamp();
-    idle(syncedText());
-    startSync(true);
+    refresh(false);
   })();
 })();
