@@ -124,7 +124,50 @@ class ApiSource:
         lines = [f"Rework API OK at {self.base}: {len(names)} services visible "
                  f"({', '.join(names[:5])}{'…' if len(names) > 5 else ''})"]
         lines += self._field_sample(services)
+        lines += self._probe(services)
         return "\n".join(lines)
+
+    def _raw(self, path, **body):
+        """One call with no pacing or retry: (status, json or None, rate-limit headers, seconds)."""
+        t0 = time.monotonic()
+        data = json.dumps({"user_id": self.user_id, **body}).encode()
+        headers = {"Content-Type": "application/json", "Accept": "application/json", "X-API-TOKEN": self.token}
+        if self.password:
+            headers["X-API-PASSWORD"] = self.password
+        req = urllib.request.Request(self.base + path, data=data, method="POST", headers=headers)
+        try:
+            with urllib.request.urlopen(req, timeout=60) as resp:
+                hdr = {k: v for k, v in resp.headers.items() if "limit" in k.lower() or "retry" in k.lower()}
+                return resp.status, json.load(resp), hdr, time.monotonic() - t0
+        except urllib.error.HTTPError as e:
+            hdr = {k: v for k, v in e.headers.items() if "limit" in k.lower() or "retry" in k.lower()}
+            return e.code, None, hdr, time.monotonic() - t0
+
+    def _probe(self, services):
+        """Which list calls accept a wider scope, and how hard can we call without being throttled."""
+        out = []
+        svc = next((s for s in services if s.get("model", "project.project") == "project.project" and s.get("status") == 1), None)
+        def show(label, res, key):
+            code, js, hdr, sec = res
+            if js is None:
+                return f"probe {label}: HTTP {code} in {sec:.2f}s {hdr}"
+            items = js.get(key)
+            return (f"probe {label}: HTTP {code} status={js.get('status')} n={len(items) if isinstance(items, list) else items} "
+                    f"has_more={js.get('has_more')} total={js.get('total') or js.get('total_items')} err={js.get('error')} "
+                    f"errors={js.get('errors')} in {sec:.2f}s {hdr}")
+        if svc:
+            out.append(show("task/list by service_id", self._raw("/v1/task/list", service_id=svc["id"], limit=200, page=0), "tasks"))
+        out.append(show("task/list no scope", self._raw("/v1/task/list", limit=200, page=0), "tasks"))
+        out.append(show("task/list updated_after", self._raw("/v1/task/list", limit=200, page=0, updated_after=int(time.time()) - 86400), "tasks"))
+        out.append(show("project/list no scope", self._raw("/v1/project/list", limit=200, page=0), "projects"))
+        # burst: 30 pings back to back
+        codes, t0 = [], time.monotonic()
+        for _ in range(30):
+            codes.append(self._raw("/v1/ping")[0])
+        out.append(f"probe burst 30 pings: {codes.count(200)} ok, others {[c for c in codes if c != 200]} in {time.monotonic() - t0:.1f}s")
+        last = self._raw("/v1/ping")
+        out.append(f"probe after burst: HTTP {last[0]} {last[2]}")
+        return out
 
     def _field_sample(self, services):
         """Field names (and value types) of one service, project and task, to plan dashboard widgets."""
