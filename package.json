@@ -1,4 +1,10 @@
 {
+  "name": "udm-dashboard",
   "private": true,
-  "type": "module"
+  "type": "module",
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "dev": "node server.js",
+    "test": "node --test tests/*.mjs && python3 -m unittest discover -s tests"
+  }
 }

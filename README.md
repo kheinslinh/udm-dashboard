@@ -42,6 +42,17 @@ There is no workflow for the weekly report any more; run it by hand with
 `python -m udm_report --dry-run` (prints) or without `--dry-run` (posts). To check the Rework API
 connection, run **Refresh dashboard data** from the Actions tab with *ping only* ticked.
 
+## Local development
+
+```bash
+cp .env.example .env    # fill in REWORK_API_KEY and REWORK_API_PASSWORD
+npm run dev             # http://localhost:4100
+```
+
+Node 20+, no `npm install` needed. `server.js` serves `site/` and the same `/api/data` as Vercel,
+so Sync pulls live from Rework (about 15 s). Without `.env` the page shows the saved snapshot in
+`site/data`. There is no password page locally. Tests: `npm test`.
+
 ## Dashboard
 
 `site/` is the time & delivery dashboard (static: `index.html`, `app.js`, `style.css`, `vendor/d3`,

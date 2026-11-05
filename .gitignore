@@ -2,3 +2,6 @@ __pycache__/
 *.pyc
 saved-responses/
 skill/*.zip
+.env
+node_modules/
+.DS_Store

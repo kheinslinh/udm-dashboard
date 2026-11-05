@@ -10,7 +10,7 @@ export const config = { maxDuration: 60 };
 export async function GET(request) {
   const cfg = settings(process.env);
   if (!cfg.key || !cfg.password) {
-    return Response.json({ error: 'REWORK_API_KEY / REWORK_API_PASSWORD are not set on Vercel' }, { status: 503, headers: { 'cache-control': 'no-store' } });
+    return Response.json({ error: 'REWORK_API_KEY / REWORK_API_PASSWORD are not set (Vercel env vars, or .env locally)' }, { status: 503, headers: { 'cache-control': 'no-store' } });
   }
   const fresh = new URL(request.url).searchParams.has('fresh');
   try {
