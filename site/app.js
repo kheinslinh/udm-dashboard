@@ -692,7 +692,7 @@
       draw();
       note(syncedText());
     } catch (e) {
-      if (e.status === 503) { syncBtn.hidden = true; note(`${syncedText()} · live sync not set up`); }
+      if (e.status === 503) note(`${syncedText()} · live sync not set up: add REWORK_API_KEY and REWORK_API_PASSWORD (Vercel settings, or .env locally)`, true);
       else note(`${syncedText()} · sync failed (${e.message})`, true);
     } finally {
       clearInterval(tick);

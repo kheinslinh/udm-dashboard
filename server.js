@@ -49,5 +49,7 @@ createServer(async (req, res) => {
   }
 }).listen(PORT, () => {
   const ready = process.env.REWORK_API_KEY && process.env.REWORK_API_PASSWORD;
-  console.log(`UDM dashboard on http://localhost:${PORT}` + (ready ? ' (live Rework data)' : ' — no .env: showing the saved snapshot only'));
+  console.log(`UDM dashboard on http://localhost:${PORT}`);
+  console.log(ready ? 'Live Rework data: on (.env read)'
+    : `Live Rework data: OFF. No REWORK_API_KEY / REWORK_API_PASSWORD found. Create ${join(ROOT, '.env')} from .env.example (plain text, named exactly .env).`);
 });
