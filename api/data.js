@@ -1,5 +1,6 @@
 // Live dashboard data: pulls Rework on request (about 10–20 s) and lets Vercel's CDN keep the answer.
-//   GET /api/data          cached up to 5 minutes, then served stale while a fresh copy is pulled
+//   GET /api/data          cached up to 10 minutes (Rework allows ~200 calls / 10 min per key; a pull uses ~170),
+//                          then served stale while a fresh copy is pulled
 //   GET /api/data?fresh=1  always pulls now (the Sync button)
 // The middleware's password gate runs before the cache, so only signed-in viewers get the data.
 // Vercel environment variables: REWORK_API_KEY, REWORK_API_PASSWORD (same values as the GitHub secrets).
@@ -38,9 +39,12 @@ export async function GET(request) {
   try {
     const data = await pull(cfg);
     return Response.json(data, {
-      headers: { 'cache-control': fresh ? 'no-store' : 'public, max-age=0, s-maxage=300, stale-while-revalidate=86400' },
+      headers: { 'cache-control': fresh ? 'no-store' : 'public, max-age=0, s-maxage=600, stale-while-revalidate=86400' },
     });
   } catch (e) {
+    if (e.rateLimited) {
+      return Response.json({ error: e.message, retry_after: e.retryAfter }, { status: 429, headers: { 'cache-control': 'no-store', 'retry-after': String(e.retryAfter) } });
+    }
     return Response.json({ error: String(e.message || e) }, { status: 502, headers: { 'cache-control': 'no-store' } });
   }
 }

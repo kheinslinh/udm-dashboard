@@ -697,6 +697,7 @@
         note(`${syncedText()} · live sync not set up: server sees ${b.has_key ? '' : 'no '}REWORK_API_KEY, ${b.has_password ? '' : 'no '}REWORK_API_PASSWORD` +
           ` (variables found: ${(b.variables_seen || []).join(', ') || 'none'}; ${b.environment || '?'}${b.commit ? ' ' + b.commit : ''})`, true);
       }
+      else if (e.status === 429) note(`${syncedText()} · Rework limit reached, Sync again in about ${Math.max(1, Math.ceil(((e.body && e.body.retry_after) || 60) / 60))} min. The data shown is still valid.`, true);
       else note(`${syncedText()} · sync failed (${e.message})`, true);
     } finally {
       clearInterval(tick);

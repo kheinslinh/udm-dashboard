@@ -53,3 +53,11 @@ test('pool keeps order and limits concurrency', async () => {
   assert.deepEqual(out, [2, 4, 6, 8, 10]);
   assert.equal(peak, 2);
 });
+
+test('a rate limit stops the pull at once with the wait time', async () => {
+  const fetchImpl = async () => new Response(JSON.stringify({ status: 0, error: 'rate_limited', retry_after: 277 }), { status: 429 });
+  const cfg = settings({ REWORK_API_KEY: 'k', REWORK_API_PASSWORD: 'p' });
+  const t0 = Date.now();
+  await assert.rejects(pull(cfg, { now: NOW, fetchImpl }), (e) => e.rateLimited && e.retryAfter === 277);
+  assert.ok(Date.now() - t0 < 1000);
+});
