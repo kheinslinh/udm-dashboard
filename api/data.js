@@ -19,7 +19,21 @@ export async function GET(request) {
     }, { status: 503, headers: { 'cache-control': 'no-store' } });
   }
   const params = new URL(request.url).searchParams;
-  if (params.has('debug')) return Response.json(await diagnose(cfg), { headers: { 'cache-control': 'no-store' } });
+  if (params.has('debug')) {
+    // Quick reachability check: one call each, 8 s cap, so it always answers inside the function limit.
+    const probe = async (url, init) => {
+      const t0 = Date.now();
+      try { const r = await fetch(url, { ...init, signal: AbortSignal.timeout(8000) }); const text = await r.text(); return { status: r.status, ms: Date.now() - t0, body: text.slice(0, 120) }; }
+      catch (e) { return { error: String(e.name === 'TimeoutError' ? 'timed out after 8s' : e.cause?.code || e.message || e), ms: Date.now() - t0 }; }
+    };
+    const headers = { 'content-type': 'application/json', 'x-api-token': cfg.key, 'x-api-password': cfg.password };
+    const [rework, github] = await Promise.all([
+      probe(cfg.base + '/v1/ping', { method: 'POST', headers, body: JSON.stringify({ user_id: cfg.userId }) }),
+      probe('https://api.github.com/zen'),
+    ]);
+    return Response.json({ commit: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7), region: process.env.VERCEL_REGION, rework, github,
+      steps: params.get('debug') === 'full' ? await diagnose(cfg) : undefined }, { headers: { 'cache-control': 'no-store' } });
+  }
   const fresh = params.has('fresh');
   try {
     const data = await pull(cfg);
