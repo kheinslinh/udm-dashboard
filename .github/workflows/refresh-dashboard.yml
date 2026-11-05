@@ -7,6 +7,10 @@ on:
         description: "Only check the Rework API connection (no export, no commit)"
         type: boolean
         default: false
+      live_test:
+        description: "Only time the live pull that /api/data does (no export, no commit)"
+        type: boolean
+        default: false
 
 permissions:
   contents: write
@@ -25,6 +29,12 @@ jobs:
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
+      - name: Time the live pull
+        if: inputs.live_test
+        env:
+          REWORK_API_KEY: ${{ secrets.REWORK_API_KEY }}
+          REWORK_API_PASSWORD: ${{ secrets.REWORK_API_PASSWORD }}
+        run: node -e "import('./lib/rework.js').then(async (m) => { const o = await m.pull(m.settings(process.env)); console.log(JSON.stringify(o.sync)); console.log('bytes', JSON.stringify(o).length); })"
       - name: Check Rework API connection
         if: inputs.ping_only
         env:
@@ -33,7 +43,7 @@ jobs:
           REWORK_API_PASSWORD: ${{ secrets.REWORK_API_PASSWORD }}
         run: python -m udm_report --ping
       - name: Export from Rework
-        if: ${{ !inputs.ping_only }}
+        if: ${{ !inputs.ping_only && !inputs.live_test }}
         env:
           REWORK_API_BASE: ${{ secrets.REWORK_API_BASE }}
           REWORK_API_KEY: ${{ secrets.REWORK_API_KEY }}
@@ -44,7 +54,7 @@ jobs:
           REWORK_PATH_WORK_ITEMS: ${{ secrets.REWORK_PATH_WORK_ITEMS }}
         run: python -m udm_report.export --out site/data
       - name: Commit if changed
-        if: ${{ !inputs.ping_only }}
+        if: ${{ !inputs.ping_only && !inputs.live_test }}
         run: |
           git config user.name "udm-report bot"
           git config user.email "actions@github.com"
