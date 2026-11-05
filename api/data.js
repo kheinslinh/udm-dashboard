@@ -10,7 +10,13 @@ export const config = { maxDuration: 60 };
 export async function GET(request) {
   const cfg = settings(process.env);
   if (!cfg.key || !cfg.password) {
-    return Response.json({ error: 'REWORK_API_KEY / REWORK_API_PASSWORD are not set (Vercel env vars, or .env locally)' }, { status: 503, headers: { 'cache-control': 'no-store' } });
+    // Names only (never values), so a misnamed or wrongly scoped variable is easy to spot.
+    const seen = Object.keys(process.env).filter((k) => /REWORK|API_KEY|PASSWORD/i.test(k)).sort();
+    return Response.json({
+      error: 'REWORK_API_KEY / REWORK_API_PASSWORD are not set (Vercel env vars, or .env locally)',
+      has_key: Boolean(cfg.key), has_password: Boolean(cfg.password), variables_seen: seen,
+      environment: process.env.VERCEL_ENV || 'local', commit: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7),
+    }, { status: 503, headers: { 'cache-control': 'no-store' } });
   }
   const fresh = new URL(request.url).searchParams.has('fresh');
   try {

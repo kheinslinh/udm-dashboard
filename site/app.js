@@ -674,7 +674,7 @@
   async function fetchLive(fresh) {
     const r = await fetch('/api/data' + (fresh ? `?fresh=${Date.now()}` : ''), { cache: fresh ? 'no-store' : 'default' });
     const body = await r.json().catch(() => ({ error: `HTTP ${r.status}` }));
-    if (!r.ok || body.error) { const e = new Error(body.error || `HTTP ${r.status}`); e.status = r.status; throw e; }
+    if (!r.ok || body.error) { const e = new Error(body.error || `HTTP ${r.status}`); e.status = r.status; e.body = body; throw e; }
     return body;
   }
 
@@ -692,7 +692,11 @@
       draw();
       note(syncedText());
     } catch (e) {
-      if (e.status === 503) note(`${syncedText()} · live sync not set up: add REWORK_API_KEY and REWORK_API_PASSWORD (Vercel settings, or .env locally)`, true);
+      if (e.status === 503) {
+        const b = e.body || {};
+        note(`${syncedText()} · live sync not set up: server sees ${b.has_key ? '' : 'no '}REWORK_API_KEY, ${b.has_password ? '' : 'no '}REWORK_API_PASSWORD` +
+          ` (variables found: ${(b.variables_seen || []).join(', ') || 'none'}; ${b.environment || '?'}${b.commit ? ' ' + b.commit : ''})`, true);
+      }
       else note(`${syncedText()} · sync failed (${e.message})`, true);
     } finally {
       clearInterval(tick);
