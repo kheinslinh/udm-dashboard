@@ -127,7 +127,7 @@
       let health, issue = '';
       const dueIn = p.deadline ? daysBetween(TODAY, p.deadline) : null;
       if (complete) health = 'Completed';
-      else if (p.status_code != null && p.status_code !== 1) { health = 'On hold'; issue = 'Not active in Rework'; }
+      else if (p.status_code != null && p.status_code < 0) { health = 'On hold'; issue = 'Paused or stopped in Rework'; }
       else if (dueIn !== null && dueIn < 0) { health = 'Delayed'; issue = `Deadline passed ${fmtDay(p.deadline)}${overdue ? ` · ${overdue} overdue` : ''}`; }
       else if (overdue >= 3 || (total && overdue / total >= 0.25)) { health = 'Delayed'; issue = `${overdue} overdue task${overdue === 1 ? '' : 's'}`; }
       else if (overdue > 0) { health = 'At risk'; issue = `${overdue} overdue task${overdue === 1 ? '' : 's'}`; }
