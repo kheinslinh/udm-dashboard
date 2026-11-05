@@ -3,7 +3,7 @@
 //   GET /api/data?fresh=1  always pulls now (the Sync button)
 // The middleware's password gate runs before the cache, so only signed-in viewers get the data.
 // Vercel environment variables: REWORK_API_KEY, REWORK_API_PASSWORD (same values as the GitHub secrets).
-import { pull, settings } from '../lib/rework.js';
+import { diagnose, pull, settings } from '../lib/rework.js';
 
 export const config = { maxDuration: 60 };
 
@@ -18,7 +18,9 @@ export async function GET(request) {
       environment: process.env.VERCEL_ENV || 'local', commit: (process.env.VERCEL_GIT_COMMIT_SHA || '').slice(0, 7),
     }, { status: 503, headers: { 'cache-control': 'no-store' } });
   }
-  const fresh = new URL(request.url).searchParams.has('fresh');
+  const params = new URL(request.url).searchParams;
+  if (params.has('debug')) return Response.json(await diagnose(cfg), { headers: { 'cache-control': 'no-store' } });
+  const fresh = params.has('fresh');
   try {
     const data = await pull(cfg);
     return Response.json(data, {
