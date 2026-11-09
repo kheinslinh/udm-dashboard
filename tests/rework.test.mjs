@@ -21,10 +21,15 @@ function fakeRework() {
       { id: 'p3', service_id: 's2', name: 'Inactive service', status: 1 }] });
     if (path === '/v1/task/list') {
       if (body.page === 0) return ok({ has_more: true, tasks: [{ id: 't1', name: 'Static 1', status: 10, deadline: NOW - 2 * DAY, finished_at: NOW - 3 * DAY, assignee_id: 6535, item_type_id: 'it1' }] });
-      return ok({ tasks: [{ id: 't2', name: 'Video', status: 1, deadline: NOW - DAY, assignee_id: 6534, stage_id: 'st9' }] });
+      return ok({ tasks: [{ id: 't2', name: 'Video', status: 1, deadline: NOW - DAY, assignee_id: 6534, stage_id: 'st9', in_final_stage: true }] });
     }
     if (path === '/v1/service/get.itemtypes') return ok({ itemtypes: [{ id: 'it1', name: 'Static' }] });
-    if (path === '/v1/service/get.stages') return ok({ stages: [{ id: 'st9', name: 'Approved' }] });
+    if (path === '/v1/worksession/list') {
+      if (body.user_id !== 6535) return ok({ sessions: [] });
+      return ok({ sessions: [
+        { id: 'w1', user_id: 6535, name: 'Static 1 revision', status: 10, running: false, started_at: NOW - 2 * DAY, seconds: 5400, task_id: 't1', project_id: 'p1', service_id: 's1' },
+        { id: 'w2', user_id: 6535, name: '', status: 10, running: false, started_at: NOW - DAY, seconds: 14 * 3600, task_id: '', project_id: 'p1', service_id: 's1' }] });
+    }
     throw new Error('unexpected ' + path);
   };
   return { calls, fetchImpl };
@@ -40,7 +45,14 @@ test('pulls every project in one list call and tasks per project', async () => {
   assert.equal(calls[0].headers['x-api-token'], 'k');
   assert.equal(calls[0].headers['x-api-password'], 'p');
   assert.equal(calls[0].body.user_id, 6144);
-  assert.deepEqual(out.tasks.map((t) => [t.id, t.state, t.item_type, t.stage]), [['t1', 'done', 'Static', ''], ['t2', 'overdue', '', 'Approved']]);
+  assert.deepEqual(out.tasks.map((t) => [t.id, t.state, t.item_type, t.final_stage]), [['t1', 'done', 'Static', false], ['t2', 'overdue', '', true]]);
+  assert.ok(!calls.some((c) => c.path === '/v1/service/get.stages'), 'stage names are not fetched any more');
+  // one worksession call per person, each acting as that person
+  const ws = calls.filter((c) => c.path === '/v1/worksession/list');
+  assert.ok(ws.length >= 30 && ws.every((c) => c.body.user_id && c.body.started_from));
+  assert.deepEqual(out.sessions.map((r) => [r.person, r.task, r.hours, r.revision, r.runaway, r.service_group, r.linked]),
+    [['Syafiqah', 'Static 1', 1.5, true, false, '(no client)', true], ['Syafiqah', '', 14, false, true, '(no client)', false]]);
+  assert.equal(out.sync.hours_source, 'rework');
   const p = out.projects[0];
   assert.deepEqual([p.done, p.total, p.overdue, p.est_hours, p.logged_hours, p.owners[0]], [1, 2, 1, 40, 12.5, 'Syafiqah']);
   assert.ok(!JSON.stringify(out).includes('9999'), 'money must not leak');

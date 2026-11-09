@@ -591,18 +591,20 @@
   function drawQuality(f) {
     const open = scopeTasks(f).filter(isOpen);
     const missing = open.map((t) => [t, [!t.assignee && 'assignee', !t.deadline && 'deadline', !t.item_type && 'work item type'].filter(Boolean)]).filter(([, m]) => m.length);
-    const stale = open.filter((t) => t.st === 'overdue' && t.stage && DONE_STAGE.test(t.stage));
+    const stale = open.filter((t) => t.st === 'overdue' && (t.final_stage || (t.stage && DONE_STAGE.test(t.stage))));
     const all = sessionRows(f, { keepRunaway: true });
     const run = all.filter((r) => r.runaway || r.hours > RUNAWAY_HOURS);
     const untitled = all.filter((r) => !r.runaway && isUntitled(r));
+    const unlinked = all.filter((r) => r.linked === false);
     kpis('#dq-kpis', [
       { icon: 'list', val: String(missing.length), lbl: 'Open tasks missing data', sub: `${pct(open.length ? missing.length / open.length : NaN)} of ${open.length} open tasks` },
-      { icon: 'check', val: String(stale.length), lbl: 'Overdue but probably finished', sub: 'in a done-like stage' },
+      { icon: 'check', val: String(stale.length), lbl: 'Overdue but probably finished', sub: 'sitting in the final stage' },
+      { icon: 'alert', val: h(sum(unlinked)), lbl: 'Time not linked to a task', sub: `${unlinked.length} sessions`, demo: true },
       { icon: 'clock', val: String(run.length), lbl: 'Timers >12h', sub: `${h(sum(run))} left out`, demo: true },
       { icon: 'flag', val: `${untitled.length}`, lbl: 'Logs without a title', sub: `${pct(all.length ? untitled.length / all.length : NaN)} of ${all.length} logs`, demo: true },
     ]);
     table('#missing-table', missing.slice(0, 300).map(([t, m]) => [linkOrText(t.name, t.url, t.project), t.client, m.join(', ')]), 'Every open task has an assignee, deadline and type.');
-    table('#stale-table', stale.map((t) => [linkOrText(t.name, t.url, t.client), t.stage, fmtDay(t.deadline)]), 'None found.');
+    table('#stale-table', stale.map((t) => [linkOrText(t.name, t.url, t.client), t.stage || (t.final_stage ? 'Final stage' : ''), fmtDay(t.deadline)]), 'None found.');
     table('#runaway-table', run.sort((a, b) => b.hours - a.hours).map((r) => [r.person, r.date, r.task, [h(r.hours), 'num']]), 'None.');
     const by = new Map();
     for (const r of untitled) by.set(r.person, (by.get(r.person) || 0) + 1);
@@ -662,7 +664,13 @@
   function setLive(live) {
     DATA.tasks = live.tasks.map((t) => ({ ...t, st: taskState(t) }));
     DATA.projects = live.projects;
+    if (Array.isArray(live.sessions)) {
+      // Real timer sessions from Rework replace the demo snapshot.
+      DATA.sessions = live.sessions.map((r) => ({ ...r, hours: Number(r.hours) || 0 }));
+      DATA.meta = { ...DATA.meta, ...(live.meta || {}), label: '' };
+    }
     DATA.sync = { ...(DATA.sync || {}), ...live.sync };
+    HOURS_DEMO = DATA.sync.hours_source !== 'rework';
   }
 
   function note(text, bad = false) {
