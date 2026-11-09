@@ -73,3 +73,11 @@ test('a rate limit stops the pull at once with the wait time', async () => {
   await assert.rejects(pull(cfg, { now: NOW, fetchImpl }), (e) => e.rateLimited && e.retryAfter === 277);
   assert.ok(Date.now() - t0 < 1000);
 });
+
+test('a dropped connection is retried', async () => {
+  let n = 0;
+  const fetchImpl = async () => (++n === 1 ? new Response('upstream connect error', { status: 503 }) : new Response(JSON.stringify({ status: 1, message: 'PONG' })));
+  const api = (await import('../lib/rework.js')).client(settings({ REWORK_API_KEY: 'k', REWORK_API_PASSWORD: 'p' }), fetchImpl);
+  assert.equal((await api.post('/v1/ping')).message, 'PONG');
+  assert.equal(n, 2);
+});
