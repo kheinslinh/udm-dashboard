@@ -8,7 +8,7 @@ on:
         type: boolean
         default: false
       live_test:
-        description: "Only time the live pull that /api/data does (no export, no commit)"
+        description: "Only probe the Rework API endpoints (no export, no commit)"
         type: boolean
         default: false
 
@@ -34,7 +34,7 @@ jobs:
         env:
           REWORK_API_KEY: ${{ secrets.REWORK_API_KEY }}
           REWORK_API_PASSWORD: ${{ secrets.REWORK_API_PASSWORD }}
-        run: node -e "import('./lib/rework.js').then(async (m) => { const o = await m.pull(m.settings(process.env)); console.log(JSON.stringify(o.sync)); console.log('bytes', JSON.stringify(o).length); })"
+        run: node scripts/probe.mjs
       - name: Check Rework API connection
         if: inputs.ping_only
         env:
