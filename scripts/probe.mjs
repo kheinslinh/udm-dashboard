@@ -1,33 +1,29 @@
-// Third probe: can we read everyone's work sessions, per acting user or per project?
+// Probe: task/list by service_id, and how worksession/list loads a whole team.
 import { settings, client } from '../lib/rework.js';
 import teams from '../udm_report/teams.json' with { type: 'json' };
 const cfg = settings(process.env);
 const api = client(cfg);
 const now = Math.floor(Date.now() / 1000);
-const from = now - 92 * 86400 + 60;
-const safe = (p) => p.catch((e) => ({ error: e.message.slice(0, 160) }));
-// 1) acting as other staff
-const ids = Object.keys(teams.users).slice(0, 6);
-for (const uid of ids) {
-  const o = await safe(api.post('/v1/worksession/list', { user_id: Number(uid), started_from: from, limit: 200, page: 0 }));
-  const users = o.sessions ? [...new Set(o.sessions.map((s) => s.user_id))] : [];
-  console.log(`acting as ${uid} (${teams.users[uid].name}): ${o.error || `total ${o.total}, owners ${JSON.stringify(users)}`}`);
+const from = now - 40 * 86400;
+const safe = (p) => p.catch((e) => ({ error: e.message.slice(0, 180) }));
+const services = (await api.post('/v1/service/all', { limit: 200, page: 0 })).services.filter((s) => (s.model || 'project.project') === 'project.project' && s.status === 1);
+const svc = services[0];
+const t = await safe(api.post('/v1/task/list', { service_id: svc.id, limit: 200, page: 0 }));
+console.log(`task/list service_id (${svc.name}): ${t.error || `n=${t.tasks.length} total=${t.total} has_more=${t.has_more} projects=${new Set(t.tasks.map((x) => x.project_id)).size}`}`);
+const tu = await safe(api.post('/v1/task/list', { service_id: svc.id, updated_from: now - 7 * 86400, limit: 200, page: 0 }));
+console.log(`task/list service_id + updated_from 7d: ${tu.error || `n=${tu.tasks.length} total=${tu.total}`}`);
+console.log(`services: ${services.length}`);
+const ids = Object.keys(teams.users).map(Number);
+const variants = {
+  'no extra': {},
+  user_ids: { user_ids: ids }, users: { users: ids }, member_ids: { member_ids: ids }, owner_ids: { owner_ids: ids },
+  'user_id array': { user_id: ids }, team: { team: true }, scope_team: { scope: 'team' }, scope_all: { scope: 'all' },
+  service_id: { service_id: svc.id },
+};
+for (const [label, extra] of Object.entries(variants)) {
+  const body = { started_from: from, limit: 200, page: 0, ...extra };
+  const o = await safe(api.post('/v1/worksession/list', body));
+  const owners = o.sessions ? new Set(o.sessions.map((s) => s.user_id)).size : 0;
+  console.log(`worksession ${label}: ${o.error || `total=${o.total} n=${o.sessions.length} owners=${owners} has_more=${o.has_more}`}`);
 }
-// 2) per project, for the projects with most tasks
-const projects = (await api.post('/v1/project/list', { limit: 200, page: 0 })).projects || [];
-for (const p of projects.filter((x) => x.status >= 0).slice(0, 4)) {
-  const o = await safe(api.post('/v1/worksession/list', { project_id: p.id, started_from: from, limit: 200, page: 0 }));
-  const users = o.sessions ? [...new Set(o.sessions.map((s) => s.user_id))] : [];
-  console.log(`project ${p.name.slice(0, 30)}: ${o.error || `total ${o.total}, owners ${JSON.stringify(users)}`}`);
-}
-// 3) project updated_at vs its newest task
-let follows = 0, checked = 0;
-for (const p of projects.filter((x) => x.status >= 0).sort((a, b) => b.updated_at - a.updated_at).slice(0, 6)) {
-  const t = (await api.post('/v1/task/list', { project_id: p.id, limit: 200, page: 0 })).tasks || [];
-  const maxT = Math.max(0, ...t.map((x) => x.updated_at || 0)); checked++; if (p.updated_at >= maxT) follows++;
-  console.log(`  ${p.name.slice(0, 28)} project.updated ${p.updated_at} newest task ${maxT}`);
-}
-console.log(`project.updated_at >= newest task in ${follows}/${checked}`);
-const pu = await safe(api.post('/v1/project/list', { updated_from: now - 3 * 86400, limit: 200, page: 0 }));
-console.log(`project/list updated_from: ${pu.error || `${pu.projects.length} of ${projects.length}`}`);
 console.log(`calls used ${api.calls()}`);
