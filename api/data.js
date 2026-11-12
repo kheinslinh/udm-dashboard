@@ -43,7 +43,10 @@ export async function GET(request) {
     });
   } catch (e) {
     if (e.rateLimited) {
-      return Response.json({ error: e.message, retry_after: e.retryAfter }, { status: 429, headers: { 'cache-control': 'no-store', 'retry-after': String(e.retryAfter) } });
+      // Let the CDN hand this answer to everyone until Rework's window reopens, so page loads
+      // don't each start another pull that burns what is left of the limit.
+      const cache = fresh ? 'no-store' : `public, max-age=0, s-maxage=${Math.max(30, Math.min(600, e.retryAfter))}`;
+      return Response.json({ error: e.message, retry_after: e.retryAfter }, { status: 429, headers: { 'cache-control': cache, 'retry-after': String(e.retryAfter) } });
     }
     return Response.json({ error: String(e.message || e) }, { status: 502, headers: { 'cache-control': 'no-store' } });
   }

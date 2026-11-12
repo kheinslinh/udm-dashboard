@@ -686,7 +686,15 @@
     return body;
   }
 
+  const LIMIT_KEY = 'udm-rework-limit-until';
+  const limitUntil = () => { try { return Number(localStorage.getItem(LIMIT_KEY) || 0); } catch { return 0; } };
+
   async function refresh(fresh) {
+    if (Date.now() < limitUntil()) {
+      const min = Math.ceil((limitUntil() - Date.now()) / 60000);
+      note(`${syncedText()} · Rework limit reached, Sync again in about ${min} min. The data shown is still valid.`, true);
+      return;
+    }
     syncBtn.disabled = true;
     syncBtn.textContent = 'Syncing…';
     const t0 = Date.now();
@@ -705,7 +713,10 @@
         note(`${syncedText()} · live sync not set up: server sees ${b.has_key ? '' : 'no '}REWORK_API_KEY, ${b.has_password ? '' : 'no '}REWORK_API_PASSWORD` +
           ` (variables found: ${(b.variables_seen || []).join(', ') || 'none'}; ${b.environment || '?'}${b.commit ? ' ' + b.commit : ''})`, true);
       }
-      else if (e.status === 429) note(`${syncedText()} · Rework limit reached, Sync again in about ${Math.max(1, Math.ceil(((e.body && e.body.retry_after) || 60) / 60))} min. The data shown is still valid.`, true);
+      else if (e.status === 429) {
+        try { localStorage.setItem(LIMIT_KEY, String(Date.now() + 1000 * ((e.body && e.body.retry_after) || 60))); } catch { /* fine */ }
+        note(`${syncedText()} · Rework limit reached, Sync again in about ${Math.max(1, Math.ceil(((e.body && e.body.retry_after) || 60) / 60))} min. The data shown is still valid.`, true);
+      }
       else note(`${syncedText()} · sync failed (${e.message})`, true);
     } finally {
       clearInterval(tick);
@@ -737,6 +748,8 @@
       $('#page-sub').textContent = 'Could not load data: ' + e.message;
       return;
     }
-    refresh(false);
+    // Opening the page only refreshes when this browser's data is over 10 minutes old.
+    const age = DATA.sync && DATA.sync.updated_at ? Date.now() - Date.parse(DATA.sync.updated_at) : Infinity;
+    if (age > 10 * 60000) refresh(false);
   })();
 })();
