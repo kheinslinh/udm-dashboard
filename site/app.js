@@ -474,7 +474,7 @@
 
   // ---------- workloads calendar ----------
   // Past days show logged session hours. From today on, hours are estimated per person:
-  //   effort of a task  = Rework workload if set, else this person's average hours per task of that
+  //   effort of a task  = this person's average hours per task of that
   //                       service in the session history (falling back to person, team, everyone),
   //                       minus what is already logged on it (at least a quarter stays);
   //   dated tasks       = spread over the working days from max(start, today) to the deadline;
@@ -527,9 +527,9 @@
       return loggers.length ? Math.min(BENCH_PER_DAY, d3.sum(loggers, (x) => x.h) / loggers.length / days) : BENCH_PER_DAY * 0.75;
     };
     const effortOf = (t) => {
-      let e = t.workload > 0 ? t.workload : 0;
-      let src = e ? 'Rework workload' : '';
-      if (!e) for (const [m, k, lbl] of [[byPS, t.assignee + '|' + t.service, 'their ' + t.service + ' tasks'], [byPerson, t.assignee, 'their past tasks'], [byTeam, teamOf.get(t.assignee) || t.team, 'team average'], [all, '*', 'everyone\'s average']]) {
+      // Rework's own workload field is not used: UDM does not plan workload in Rework.
+      let e = 0, src = '';
+      for (const [m, k, lbl] of [[byPS, t.assignee + '|' + t.service, 'their ' + t.service + ' tasks'], [byPerson, t.assignee, 'their past tasks'], [byTeam, teamOf.get(t.assignee) || t.team, 'team average'], [all, '*', 'everyone\'s average']]) {
         const v = m.get(k); if (v && v.perTask) { e = v.perTask; src = lbl; break; }
       }
       const done = loggedOnItem.get(t.id) || 0;
