@@ -86,6 +86,22 @@
 
       <!-- TEAM & CAPACITY -->
       <section id="tab-team" class="tab" hidden>
+        <article class="card wl-card" id="wl-card">
+          <div class="wl-bar">
+            <h2>Workloads</h2>
+            <button class="btn-ghost sm" id="wl-today" type="button">Today</button>
+            <span class="wl-nav"><button id="wl-prev" type="button" aria-label="Earlier">‹</button><button id="wl-next" type="button" aria-label="Later">›</button></span>
+            <span class="wl-range" id="wl-range"></span>
+            <span class="wl-right">
+              <input type="search" id="wl-search" class="wl-search" placeholder="Search people…" aria-label="Search people">
+              <span class="seg" id="wl-grain"><button data-g="day" class="on" type="button">Day</button><button data-g="week" type="button">Week</button></span>
+            </span>
+          </div>
+          <p class="muted">Before today: hours from session logs. From today on: <b>estimated</b> from open tasks — Rework workload if set, otherwise how long this person's past tasks of that service took — spread to each deadline; tasks without a deadline are queued at the person's usual daily pace. Capacity 8h per working day. Click a person to see their tasks.</p>
+          <span class="legend-inline"><i class="sw brand"></i>Logged <i class="sw est"></i>Estimated <i class="sw bad"></i>Over capacity <i class="sw hatch"></i>Weekend</span>
+          <div class="wl-scroll"><div id="wl-grid" class="wl-grid"></div></div>
+          <div class="wl-foot" id="wl-foot"></div>
+        </article>
         <div class="kpis" id="team-kpis"></div>
         <div class="grid g2">
           <article class="card"><div class="card-head"><h2>Utilisation by team</h2><span class="badge demo" data-demo hidden>Demo hours</span></div><p class="muted">Hours logged ÷ (people × working days × 8h).</p><div id="bars-util"></div></article>

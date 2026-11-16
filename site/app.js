@@ -75,7 +75,7 @@
 
   let DATA = { sessions: [], projects: [], tasks: [], people: [], meta: {}, sync: null };
   let HOURS_DEMO = true;
-  const state = { tab: 'dashboard', grain: 'day' };
+  const state = { tab: 'dashboard', grain: 'day', wlGrain: 'day', wlStart: monday(TODAY), wlOpen: new Set() };
   const F = ['from', 'to', 'client', 'service', 'team', 'person'];
 
   async function load(name, fallback) {
@@ -472,7 +472,256 @@
     table('#deliv-table', byClient.map(([k, v]) => [k, [v.done, 'num'], [v.total, 'num'], [pct(v.total ? v.done / v.total : NaN), 'num'], [v.overdue, v.overdue ? 'num bad' : 'num'], [pct(v.ot), 'num']]));
   }
 
+  // ---------- workloads calendar ----------
+  // Past days show logged session hours. From today on, hours are estimated per person:
+  //   effort of a task  = Rework workload if set, else this person's average hours per task of that
+  //                       service in the session history (falling back to person, team, everyone),
+  //                       minus what is already logged on it (at least a quarter stays);
+  //   dated tasks       = spread over the working days from max(start, today) to the deadline;
+  //   overdue tasks     = spread over the next 3 working days;
+  //   undated tasks     = queued oldest first and drained at the person's usual hours per working
+  //                       day, in whatever room the dated tasks leave.
+  const WL_HORIZON = 180;
+  const isWorkday = (s) => { const w = new Date(s + 'T00:00:00Z').getUTCDay(); return w !== 0 && w !== 6; };
+  const AV_COLORS = ['#e03131', '#e8590c', '#d9480f', '#6c00ff', '#1c7ed6', '#0ca678', '#9c36b5', '#f08c00', '#2f9e44', '#c2255c'];
+  const avColor = (s) => AV_COLORS[[...s].reduce((a, c) => (a * 31 + c.charCodeAt(0)) >>> 0, 7) % AV_COLORS.length];
+  const initials = (s) => s.split(/\s+/).filter(Boolean).slice(0, 2).map((w) => w[0].toUpperCase()).join('');
+  const hh = (x) => (x >= 10 ? Math.round(x) : Math.round(x * 10) / 10) + 'h';
+
+  let WL_CACHE = null;
+  function wlHistory() {
+    if (WL_CACHE && WL_CACHE.src === DATA.sessions && WL_CACHE.tasks === DATA.tasks) return WL_CACHE;
+    // Today is still being logged, so history stops yesterday.
+    const hist = DATA.sessions.filter((r) => !r.runaway && !r.clockin && r.date < TODAY);
+    const dates = hist.map((r) => r.date).sort();
+    let days = 0;
+    if (dates.length && HOURS_DEMO) {
+      days = workdays(dates[0], dates[dates.length - 1]);
+      if (DATA.meta.last_day_share != null) days -= 1 - DATA.meta.last_day_share;
+    } else if (dates.length) {
+      const from = DATA.meta.window_start && DATA.meta.window_start < dates[0] ? DATA.meta.window_start : dates[0];
+      days = workdays(from, addDays(TODAY, -1));
+    }
+    const teamOf = new Map(DATA.people.map((p) => [p.person, p.team]));
+    const agg = (key) => {
+      const m = new Map();
+      for (const r of hist) {
+        const k = key(r); if (k == null) continue;
+        if (!m.has(k)) m.set(k, { h: 0, items: new Set() });
+        const x = m.get(k); x.h += r.hours; x.items.add(r.item_id || r.task);
+      }
+      return new Map([...m].map(([k, v]) => [k, { h: v.h, perTask: v.items.size ? v.h / v.items.size : 0 }]));
+    };
+    const byPerson = agg((r) => r.person), byPS = agg((r) => r.person + '|' + r.service), byTeam = agg((r) => teamOf.get(r.person) || r.team), all = agg(() => '*');
+    const loggedOnItem = new Map();
+    for (const r of hist) if (r.item_id) loggedOnItem.set(r.item_id, (loggedOnItem.get(r.item_id) || 0) + r.hours);
+    // usual hours per working day: own history, else the team's loggers, else everyone's
+    const paceOf = (p) => {
+      if (!days) return BENCH_PER_DAY * 0.75;
+      const own = byPerson.get(p);
+      if (own && own.h) return Math.min(BENCH_PER_DAY, own.h / days);
+      const team = teamOf.get(p);
+      const mates = DATA.people.filter((x) => x.team === team && byPerson.get(x.person));
+      if (mates.length) return Math.min(BENCH_PER_DAY, d3.sum(mates, (x) => byPerson.get(x.person).h) / mates.length / days);
+      const loggers = [...byPerson.values()];
+      return loggers.length ? Math.min(BENCH_PER_DAY, d3.sum(loggers, (x) => x.h) / loggers.length / days) : BENCH_PER_DAY * 0.75;
+    };
+    const effortOf = (t) => {
+      let e = t.workload > 0 ? t.workload : 0;
+      let src = e ? 'Rework workload' : '';
+      if (!e) for (const [m, k, lbl] of [[byPS, t.assignee + '|' + t.service, 'their ' + t.service + ' tasks'], [byPerson, t.assignee, 'their past tasks'], [byTeam, teamOf.get(t.assignee) || t.team, 'team average'], [all, '*', 'everyone\'s average']]) {
+        const v = m.get(k); if (v && v.perTask) { e = v.perTask; src = lbl; break; }
+      }
+      const done = loggedOnItem.get(t.id) || 0;
+      return { e: Math.max(e - done, e * 0.25), src };
+    };
+    WL_CACHE = { src: DATA.sessions, tasks: DATA.tasks, paceOf, effortOf, teamOf };
+    return WL_CACHE;
+  }
+
+  // date -> { h, items: Map(taskId -> {t, h}) } of estimated hours for one person, from TODAY on
+  function wlEstimate(person, tasks, H) {
+    const days = [];
+    for (let d = TODAY, i = 0; i < WL_HORIZON; d = addDays(d, 1), i++) if (isWorkday(d)) days.push(d);
+    const out = new Map(days.map((d) => [d, { h: 0, items: new Map() }]));
+    const put = (d, t, v) => { const c = out.get(d); if (!c || v <= 0) return; c.h += v; const x = c.items.get(t.id) || { t, h: 0 }; x.h += v; c.items.set(t.id, x); };
+    const queue = [];
+    for (const t of tasks) {
+      const { e, src } = H.effortOf(t);
+      t._est = e; t._src = src;
+      if (t.deadline && t.deadline >= TODAY) {
+        const s = t.start && t.start > TODAY ? t.start : TODAY;
+        let span = days.filter((d) => d >= s && d <= t.deadline);
+        if (!span.length) span = [days.find((d) => d >= s) || days[0]];
+        for (const d of span) put(d, t, e / span.length);
+      } else if (t.deadline) {
+        for (const d of days.slice(0, 3)) put(d, t, e / 3);
+      } else queue.push({ t, left: e, from: t.start && t.start > TODAY ? t.start : TODAY });
+    }
+    queue.sort((a, b) => (a.from + (a.t.created || '')).localeCompare(b.from + (b.t.created || '')));
+    const pace = H.paceOf(person);
+    let qi = 0;
+    for (const d of days) {
+      let room = Math.max(0, pace - out.get(d).h);
+      for (let j = qi; j < queue.length && room > 0.01; j++) {
+        const q = queue[j];
+        if (q.left <= 0 || q.from > d) continue;
+        const v = Math.min(room, q.left);
+        put(d, q.t, v); q.left -= v; room -= v;
+      }
+      while (qi < queue.length && queue[qi].left <= 0.001) qi++;
+    }
+    return { out, backlogAfter: (end) => d3.sum([...out].filter(([d]) => d > end), ([, c]) => c.h) + d3.sum(queue, (q) => q.left) };
+  }
+
+  function wlColumns() {
+    const cols = [];
+    if (state.wlGrain === 'week') {
+      for (let i = 0; i < 8; i++) { const s = addDays(state.wlStart, i * 7); cols.push({ key: s, from: s, to: addDays(s, 6), work: workdays(s, addDays(s, 6)) }); }
+    } else {
+      for (let i = 0; i < 21; i++) { const d = addDays(state.wlStart, i); cols.push({ key: d, from: d, to: d, work: isWorkday(d) ? 1 : 0 }); }
+    }
+    return cols;
+  }
+
+  function drawWorkload(f) {
+    const grid = $('#wl-grid');
+    const H = wlHistory();
+    const cols = wlColumns();
+    const wFrom = cols[0].from, wTo = cols[cols.length - 1].to;
+    const fmtR = (s, o) => new Date(s + 'T00:00:00Z').toLocaleDateString(undefined, { timeZone: 'UTC', ...o });
+    $('#wl-range').textContent = `${fmtR(wFrom, { month: 'short', day: 'numeric' })} – ${fmtR(wTo, { month: 'short', day: 'numeric' })}`;
+    const q = ($('#wl-search').value || '').trim().toLowerCase();
+    const people = DATA.people.filter((p) => (!f.team || p.team === f.team) && (!f.person || p.person === f.person) && (!q || p.person.toLowerCase().includes(q)));
+    const openTasks = scopeTasks(f, { ignorePerson: true, ignoreTeam: true }).filter((t) => isOpen(t) && t.assignee);
+    const tasksBy = d3.group(openTasks, (t) => t.assignee);
+    const logs = DATA.sessions.filter((r) => r.date >= wFrom && r.date <= wTo && r.date < TODAY &&
+      (!f.client || r.service_group === f.client) && (!f.service || r.service === f.service) && (f.runaway || !r.runaway));
+    const logsBy = d3.group(logs, (r) => r.person);
+    const cap = (c) => c.work * BENCH_PER_DAY;
+
+    const rows = people.map((p) => {
+      const est = wlEstimate(p.person, tasksBy.get(p.person) || [], H);
+      const plog = logsBy.get(p.person) || [];
+      const cells = cols.map((c) => {
+        const lg = plog.filter((r) => r.date >= c.from && r.date <= c.to);
+        let eh = 0; const items = new Map();
+        for (let d = c.from < TODAY ? TODAY : c.from; d <= c.to; d = addDays(d, 1)) {
+          const x = est.out.get(d); if (!x) continue;
+          eh += x.h;
+          for (const [id, v] of x.items) { const y = items.get(id) || { t: v.t, h: 0 }; y.h += v.h; items.set(id, y); }
+        }
+        return { c, logged: sum(lg), logs: lg, est: eh, items };
+      });
+      const booked = d3.sum(cells, (x) => x.logged + x.est);
+      const capacity = d3.sum(cols, cap);
+      return { p, cells, booked, capacity, backlog: est.backlogAfter(wTo), ntasks: (tasksBy.get(p.person) || []).length };
+    }).sort((a, b) => b.booked / (b.capacity || 1) - a.booked / (a.capacity || 1) || a.p.person.localeCompare(b.p.person));
+
+    grid.style.gridTemplateColumns = `minmax(270px, 300px) repeat(${cols.length}, minmax(${state.wlGrain === 'week' ? 74 : 50}px, 1fr))`;
+    const nodes = [];
+    // header: months, then days / weeks
+    nodes.push(el('div', { class: 'wl-h wl-corner', style: 'grid-row: span 2' }, `Assignees · ${rows.length}`));
+    let i = 0;
+    while (i < cols.length) {
+      const m = cols[i].from.slice(0, 7);
+      let j = i; while (j < cols.length && cols[j].from.slice(0, 7) === m) j++;
+      nodes.push(el('div', { class: 'wl-h wl-month', style: `grid-column: span ${j - i}` }, fmtR(cols[i].from, { month: 'long', year: 'numeric' })));
+      i = j;
+    }
+    for (const c of cols) {
+      const isToday = c.from <= TODAY && TODAY <= c.to;
+      const d = el('div', { class: 'wl-h wl-day' + (isToday ? ' today' : '') });
+      if (state.wlGrain === 'week') d.append(document.createTextNode('WEEK OF'), el('b', {}, fmtR(c.from, { day: 'numeric', month: 'short' })));
+      else d.append(document.createTextNode(fmtR(c.from, { weekday: 'short' }).toUpperCase()), el('b', {}, fmtR(c.from, { day: 'numeric' })));
+      nodes.push(d);
+    }
+
+    for (const r of rows) {
+      const u = r.capacity ? r.booked / r.capacity : 0;
+      const who = el('div', { class: 'wl-who' + (state.wlOpen.has(r.p.person) ? ' open' : ''), title: `${r.p.person}: ${r.ntasks} open tasks` });
+      const av = el('div', { class: 'wl-av', style: `background:${avColor(r.p.person)}` }, initials(r.p.person));
+      const txt = el('div', { style: 'min-width:0' });
+      const team = el('div', { class: 'wl-team' }, r.p.team);
+      if (r.backlog >= 0.5) { const em = el('em', { title: `${h(r.backlog)} more estimated work queued after ${fmtDay(wTo)}` }, `+${Math.round(r.backlog)}h`); team.append(em); }
+      txt.append(el('div', { class: 'wl-name' }, r.p.person), team);
+      const left = r.capacity - r.booked;
+      const st = el('div', { class: 'wl-stat' });
+      st.append(pill(pct(u), u > 1 ? 'bad' : u > 0.85 ? 'warn' : 'ok'), el('div', {}, left >= 0 ? `${h(left)} left` : `${h(-left)} over`));
+      who.append(el('span', { class: 'wl-chev' }, '▶'), av, txt, st);
+      who.addEventListener('click', () => { state.wlOpen.has(r.p.person) ? state.wlOpen.delete(r.p.person) : state.wlOpen.add(r.p.person); drawWorkload(filters()); });
+      nodes.push(who);
+
+      for (const x of r.cells) {
+        const cell = el('div', { class: 'wl-cell' + (x.c.from <= TODAY && TODAY <= x.c.to ? ' today' : '') });
+        const tot = x.logged + x.est, cp = cap(x.c);
+        const isEst = x.est > 0 && x.est >= x.logged;
+        const box = el('div', { class: 'wl-box' + (!x.c.work ? ' off' : '') + (isEst ? ' est' : '') + (cp && tot > cp + 0.05 ? ' over' : '') });
+        if (tot >= 0.05) {
+          box.append(el('div', { class: 'fill', style: `height:${Math.min(100, (tot / (cp || BENCH_PER_DAY)) * 100)}%` }), el('span', {}, hh(tot)));
+          const lines = [`${r.p.person} · ${state.wlGrain === 'week' ? 'week of ' : ''}${fmtDay(x.c.from)}`];
+          if (x.logged) {
+            lines.push(`Logged ${h(x.logged)}`);
+            for (const [k, v] of groupSum(x.logs, (l) => l.task).slice(0, 4)) lines.push(`  • ${k}: ${h(v)}`);
+          }
+          if (x.est) {
+            lines.push(`Estimated ${h(x.est)}${cp ? ` of ${h(cp)} capacity` : ''}`);
+            for (const v of [...x.items.values()].sort((a, b) => b.h - a.h).slice(0, 5)) lines.push(`  • ${v.t.name}: ${h(v.h)}${v.t.deadline ? ` (due ${fmtDay(v.t.deadline)})` : ''}`);
+            if (x.items.size > 5) lines.push(`  + ${x.items.size - 5} more tasks`);
+          }
+          box.addEventListener('mousemove', (ev) => showTip(ev, lines.join('\n')));
+          box.addEventListener('mouseleave', hideTip);
+        }
+        cell.append(box);
+        nodes.push(cell);
+      }
+
+      if (state.wlOpen.has(r.p.person)) {
+        // one sub-row per task touched in this window: logged (past) or estimated (from today)
+        const tmap = new Map();
+        for (const [ci, x] of r.cells.entries()) {
+          for (const l of x.logs) {
+            const k = l.item_id || l.task;
+            if (!tmap.has(k)) tmap.set(k, { name: l.task, sub: l.service_group, url: '', v: new Array(cols.length).fill(0), e: new Array(cols.length).fill(0) });
+            tmap.get(k).v[ci] += l.hours;
+          }
+          for (const [id, it] of x.items) {
+            if (!tmap.has(id)) tmap.set(id, { name: it.t.name, sub: [it.t.client, it.t.deadline ? 'due ' + fmtDay(it.t.deadline) : 'no deadline', `~${h(it.t._est)} (${it.t._src})`].filter(Boolean).join(' · '), url: it.t.url, v: new Array(cols.length).fill(0), e: new Array(cols.length).fill(0) });
+            tmap.get(id).e[ci] += it.h;
+          }
+        }
+        const list = [...tmap.values()].sort((a, b) => d3.sum(b.v) + d3.sum(b.e) - d3.sum(a.v) - d3.sum(a.e));
+        if (!list.length) nodes.push(el('div', { class: 'wl-sub', style: `grid-column: 1 / span ${cols.length + 1}` }, 'No logged or planned work in this window.'));
+        for (const t of list.slice(0, 15)) {
+          const s = el('div', { class: 'wl-sub', title: `${t.name}${t.sub ? ' — ' + t.sub : ''}` });
+          s.append(t.url ? el('a', { href: t.url, target: '_blank', rel: 'noopener' }, t.name) : document.createTextNode(t.name), el('small', {}, t.sub || ''));
+          nodes.push(s);
+          cols.forEach((c, ci) => {
+            const v = t.v[ci] + t.e[ci];
+            nodes.push(el('div', { class: 'wl-subcell' + (v >= 0.05 ? ' v' + (t.e[ci] > t.v[ci] ? ' est' : '') : '') + (!c.work ? ' off' : '') }, v >= 0.05 ? hh(v) : ''));
+          });
+        }
+        if (list.length > 15) nodes.push(el('div', { class: 'wl-sub', style: `grid-column: 1 / span ${cols.length + 1}` }, `+ ${list.length - 15} more tasks`));
+      }
+    }
+    if (!rows.length) nodes.push(el('div', { class: 'wl-sub', style: `grid-column: 1 / span ${cols.length + 1}` }, 'No people match.'));
+    grid.replaceChildren(...nodes);
+
+    const loggedAll = d3.sum(rows, (r) => d3.sum(r.cells, (x) => x.logged));
+    const estAll = d3.sum(rows, (r) => d3.sum(r.cells, (x) => x.est));
+    const capAll = d3.sum(rows, (r) => r.capacity);
+    const over = rows.filter((r) => r.booked > r.capacity).length;
+    const pastWindow = wFrom < TODAY;
+    $('#wl-foot').textContent = [
+      pastWindow ? `${h(loggedAll)} logged` : '', wTo >= TODAY ? `${h(estAll)} estimated` : '',
+      `${pct(capAll ? (loggedAll + estAll) / capAll : NaN)} of ${h(capAll)} capacity`,
+      over ? `${over} ${over === 1 ? 'person' : 'people'} over capacity` : '',
+      HOURS_DEMO && pastWindow && !loggedAll ? `no session logs in this window (demo logs cover ${fmtDay(DATA.meta.window_start)} – ${fmtDay(DATA.meta.window_end)})` : '',
+    ].filter(Boolean).join(' · ');
+  }
+
   function drawTeam(f) {
+    drawWorkload(f);
     const rows = sessionRows(f, { ignorePerson: true });
     const [hf, ht] = hoursWindow(f);
     const days = workdays(hf, ht);
@@ -645,6 +894,16 @@
     state.grain = b.dataset.g;
     document.querySelectorAll('#grain button').forEach((x) => x.classList.toggle('on', x === b));
     draw();
+  }));
+  const wlShift = (n) => { state.wlStart = addDays(state.wlStart, n * (state.wlGrain === 'week' ? 28 : 7)); drawWorkload(filters()); };
+  $('#wl-prev').addEventListener('click', () => wlShift(-1));
+  $('#wl-next').addEventListener('click', () => wlShift(1));
+  $('#wl-today').addEventListener('click', () => { state.wlStart = monday(TODAY); drawWorkload(filters()); });
+  $('#wl-search').addEventListener('input', () => drawWorkload(filters()));
+  document.querySelectorAll('#wl-grain button').forEach((b) => b.addEventListener('click', () => {
+    state.wlGrain = b.dataset.g;
+    document.querySelectorAll('#wl-grain button').forEach((x) => x.classList.toggle('on', x === b));
+    drawWorkload(filters());
   }));
   for (const k of [...F, 'runaway']) $('#f-' + k).addEventListener('change', () => { if (k === 'client' || k === 'team') refreshOptions(); draw(); });
   $('#f-reset').addEventListener('click', () => { resetFilters(); refreshOptions(); draw(); });
