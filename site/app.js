@@ -658,7 +658,7 @@
         const isEst = x.est > 0 && x.est >= x.logged;
         const box = el('div', { class: 'wl-box' + (!x.c.work ? ' off' : '') + (isEst ? ' est' : '') + (cp && tot > cp + 0.05 ? ' over' : '') });
         if (tot >= 0.05) {
-          box.append(el('div', { class: 'fill', style: `height:${Math.min(100, (tot / (cp || BENCH_PER_DAY)) * 100)}%` }), el('span', {}, hh(tot)));
+          box.append(el('div', { class: 'fill', style: `--p:${Math.min(1, tot / (cp || BENCH_PER_DAY)).toFixed(3)}` }), el('span', {}, hh(tot)));
           const lines = [`${r.p.person} · ${state.wlGrain === 'week' ? 'week of ' : ''}${fmtDay(x.c.from)}`];
           if (x.logged) {
             lines.push(`Logged ${h(x.logged)}`);
@@ -890,6 +890,22 @@
   }
   document.querySelectorAll('.nav button').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.tab)));
   document.querySelectorAll('[data-goto]').forEach((b) => b.addEventListener('click', () => setTab(b.dataset.goto)));
+
+  // ---------- light / dark ----------
+  const THEME_KEY = 'udm-theme';
+  const sysDark = window.matchMedia ? matchMedia('(prefers-color-scheme: dark)') : null;
+  const savedTheme = () => { try { const t = localStorage.getItem(THEME_KEY); return t === 'light' || t === 'dark' ? t : ''; } catch { return ''; } };
+  function applyTheme(t) {
+    document.documentElement.setAttribute('data-theme', t);
+    document.querySelectorAll('[data-theme-set]').forEach((b) => { b.classList.toggle('on', b.dataset.themeSet === t); b.setAttribute('aria-pressed', String(b.dataset.themeSet === t)); });
+    if (DATA) draw(); // charts read colours when drawn
+  }
+  document.querySelectorAll('[data-theme-set]').forEach((b) => b.addEventListener('click', () => {
+    try { localStorage.setItem(THEME_KEY, b.dataset.themeSet); } catch { /* not saved: still switches for this visit */ }
+    applyTheme(b.dataset.themeSet);
+  }));
+  if (sysDark) sysDark.addEventListener('change', (e) => { if (!savedTheme()) applyTheme(e.matches ? 'dark' : 'light'); });
+  document.querySelectorAll('[data-theme-set]').forEach((b) => b.classList.toggle('on', b.dataset.themeSet === document.documentElement.getAttribute('data-theme')));
   document.querySelectorAll('#grain button').forEach((b) => b.addEventListener('click', () => {
     state.grain = b.dataset.g;
     document.querySelectorAll('#grain button').forEach((x) => x.classList.toggle('on', x === b));
